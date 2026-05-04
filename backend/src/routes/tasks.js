@@ -10,7 +10,7 @@ const router = express.Router();
 
 // POST /api/tasks – create plan + optionally launch
 router.post('/', async (req, res) => {
-  const { task, agentIds, autoRun = false } = req.body;
+  const { task, agentIds, autoRun = false, workspaceId } = req.body;
   if (!task || typeof task !== 'string' || !task.trim()) {
     return res.status(400).json({ error: 'Le champ "task" est requis' });
   }
@@ -21,6 +21,7 @@ router.post('/', async (req, res) => {
       id: uuid(),
       task: task.trim(),
       plan,
+      ...(workspaceId ? { workspaceId: String(workspaceId) } : {}),
       createdAt: new Date().toISOString(),
     };
     storage.create('tasks', taskRecord);

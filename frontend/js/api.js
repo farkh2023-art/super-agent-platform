@@ -1,11 +1,25 @@
 // API Client for Super-Agent Platform
 const API_BASE = window.location.origin + '/api';
 
+// ── Token management (never logged) ─────────────────────────────────────────
+const AuthToken = {
+  get:   ()  => localStorage.getItem('sap_jwt') || '',
+  set:   (t) => localStorage.setItem('sap_jwt', t),
+  clear: ()  => localStorage.removeItem('sap_jwt'),
+};
+window.AuthToken = AuthToken;
+
 async function apiFetch(path, options = {}) {
-  const res = await fetch(`${API_BASE}${path}`, {
-    headers: { 'Content-Type': 'application/json', ...options.headers },
-    ...options,
-  });
+  const token = AuthToken.get();
+  const headers = { 'Content-Type': 'application/json', ...options.headers };
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+  const res = await fetch(`${API_BASE}${path}`, { ...options, headers });
+  if (res.status === 401) {
+    AuthToken.clear();
+    window.dispatchEvent(new CustomEvent('auth:unauthorized'));
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || 'Non autorisé');
+  }
   const data = await res.json();
   if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
   return data;
@@ -133,6 +147,22 @@ const API = {
   // Metrics
   getMetrics: () => apiFetch('/metrics'),
   getAgentMetrics: () => apiFetch('/metrics/agents'),
+
+  // ── Auth (Phase 6A/B) ────────────────────────────────────────────────────
+  getAuthMode: () => apiFetch('/auth/mode'),
+  login: (username, password) => apiFetch('/auth/login', { method: 'POST', body: JSON.stringify({ username, password }) }),
+  me: () => apiFetch('/auth/me'),
+  logout: () => apiFetch('/auth/logout', { method: 'POST', body: JSON.stringify({}) }),
+  getAuditLog: () => apiFetch('/auth/audit-log'),
+  getAuthUsers: () => apiFetch('/auth/users'),
+  registerUser: (body) => apiFetch('/auth/register', { method: 'POST', body: JSON.stringify(body) }),
+
+  // ── Workspaces (Phase 6A/B) ──────────────────────────────────────────────
+  getWorkspaces: () => apiFetch('/workspaces'),
+  createWorkspace: (body) => apiFetch('/workspaces', { method: 'POST', body: JSON.stringify(body) }),
+  getWorkspace: (id) => apiFetch(`/workspaces/${id}`),
+  getWorkspaceTasks: (id) => apiFetch(`/workspaces/${id}/tasks`),
+  createWorkspaceTask: (id, body) => apiFetch(`/workspaces/${id}/tasks`, { method: 'POST', body: JSON.stringify(body) }),
 };
 
 window.API = API;

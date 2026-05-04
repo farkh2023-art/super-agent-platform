@@ -16,6 +16,7 @@ let state = {
     executions: { offset: 0, limit: 20, total: 0 },
     memory:     { offset: 0, limit: 20, total: 0 },
   },
+  auth: { mode: 'single', user: null, workspace: null },
 };
 
 // ── Routing ──────────────────────────────────────────────────────────────────
@@ -28,17 +29,241 @@ function navigate(view) {
     el.style.display = el.id === `view-${view}` ? 'block' : 'none';
   });
   switch (view) {
-    case 'dashboard': loadDashboard(); break;
-    case 'agents': loadAgentsView(); break;
-    case 'execute': loadExecuteView(); break;
-    case 'executions': loadExecutionsView(); break;
-    case 'artifacts': loadArtifactsView(); break;
-    case 'workflows': loadWorkflowsView(); break;
-    case 'settings': loadSettingsView(); break;
-    case 'search': loadSearchView(); break;
-    case 'schedules': loadSchedulesView(); break;
-    case 'memory': loadMemoryView(); break;
-    case 'metrics': loadMetricsView(); break;
+    case 'dashboard':   loadDashboard(); break;
+    case 'agents':      loadAgentsView(); break;
+    case 'execute':     loadExecuteView(); break;
+    case 'executions':  loadExecutionsView(); break;
+    case 'artifacts':   loadArtifactsView(); break;
+    case 'workflows':   loadWorkflowsView(); break;
+    case 'settings':    loadSettingsView(); break;
+    case 'search':      loadSearchView(); break;
+    case 'schedules':   loadSchedulesView(); break;
+    case 'memory':      loadMemoryView(); break;
+    case 'metrics':     loadMetricsView(); break;
+    case 'workspaces':  loadWorkspacesView(); break;
+    case 'audit-log':   loadAuditLogView(); break;
+  }
+}
+
+// ── Auth (Phase 6B) ──────────────────────────────────────────────────────────
+
+function showLoginOverlay() {
+  const el = qs('#login-overlay');
+  if (el) { el.style.display = 'flex'; qs('#login-username')?.focus(); }
+}
+
+function hideLoginOverlay() {
+  const el = qs('#login-overlay');
+  if (el) el.style.display = 'none';
+}
+
+function updateAuthUI() {
+  const { mode, user, workspace } = state.auth;
+  const bar     = qs('#auth-user-bar');
+  const navWs   = qs('#nav-workspaces');
+  const navAudit = qs('#nav-audit-log');
+  const badge    = qs('#execute-workspace-badge');
+  const wsName   = qs('#execute-workspace-name');
+
+  if (mode === 'multi' && user) {
+    if (bar) {
+      bar.style.display = 'block';
+      const uLabel = qs('#auth-username-label');
+      const wsLabel = qs('#auth-workspace-label');
+      if (uLabel) uLabel.textContent = user.username + (user.role === 'admin' ? ' (admin)' : '');
+      if (wsLabel) wsLabel.textContent = workspace ? workspace.name : 'Aucun workspace';
+    }
+    if (navWs)    navWs.style.display = 'flex';
+    if (navAudit) navAudit.style.display = user.role === 'admin' ? 'flex' : 'none';
+    if (badge && wsName) {
+      if (workspace) {
+        badge.style.display = 'block';
+        wsName.textContent = workspace.name;
+      } else {
+        badge.style.display = 'none';
+      }
+    }
+  } else {
+    if (bar)      bar.style.display = 'none';
+    if (navWs)    navWs.style.display = 'none';
+    if (navAudit) navAudit.style.display = 'none';
+    if (badge)    badge.style.display = 'none';
+  }
+}
+
+async function initAuth() {
+  try {
+    const { mode } = await API.getAuthMode();
+    state.auth.mode = mode;
+
+    if (mode !== 'multi') {
+      navigate('dashboard');
+      return;
+    }
+
+    const token = window.AuthToken.get();
+    if (token) {
+      try {
+        const { user } = await API.me();
+        state.auth.user = user;
+        updateAuthUI();
+        hideLoginOverlay();
+        navigate('dashboard');
+        return;
+      } catch {
+        window.AuthToken.clear();
+      }
+    }
+
+    showLoginOverlay();
+  } catch {
+    navigate('dashboard');
+  }
+}
+
+async function doLogin() {
+  const username = qs('#login-username')?.value?.trim() || '';
+  const password = qs('#login-password')?.value || '';
+  const errEl    = qs('#login-error');
+  const btn      = qs('#login-btn');
+
+  if (!username || !password) {
+    if (errEl) { errEl.textContent = 'Identifiant et mot de passe requis'; errEl.style.display = 'block'; }
+    return;
+  }
+
+  if (btn) { btn.disabled = true; btn.textContent = 'Connexion...'; }
+  if (errEl) errEl.style.display = 'none';
+
+  try {
+    const data = await API.login(username, password);
+    window.AuthToken.set(data.token);
+    state.auth.user = data.user;
+    updateAuthUI();
+    hideLoginOverlay();
+    if (qs('#login-password')) qs('#login-password').value = '';
+    navigate('dashboard');
+    showToast(`Connecté en tant que ${data.user.username}`, 'success');
+  } catch (err) {
+    if (errEl) { errEl.textContent = err.message || 'Identifiants incorrects'; errEl.style.display = 'block'; }
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'Se connecter'; }
+  }
+}
+
+async function doLogout() {
+  try { await API.logout(); } catch { /* ignore */ }
+  window.AuthToken.clear();
+  state.auth = { mode: state.auth.mode, user: null, workspace: null };
+  updateAuthUI();
+  showLoginOverlay();
+}
+
+// ── Workspaces View ──────────────────────────────────────────────────────────
+
+async function loadWorkspacesView() {
+  const container = qs('#workspaces-list');
+  if (!container) return;
+  container.innerHTML = '<div class="text-muted text-sm">Chargement...</div>';
+
+  const createCard = qs('#workspace-create-card');
+  if (createCard) createCard.style.display = state.auth.user?.role === 'admin' ? 'block' : 'none';
+
+  try {
+    const { workspaces } = await API.getWorkspaces();
+    if (!workspaces || !workspaces.length) {
+      container.innerHTML = '<div class="empty-state"><div class="empty-icon">🏢</div><p>Aucun workspace. Un admin peut en créer un.</p></div>';
+      return;
+    }
+    const current = state.auth.workspace;
+    container.innerHTML = workspaces.map((ws) => `
+      <div class="card" style="margin-bottom:12px;border-color:${current && current.id === ws.id ? 'var(--accent)' : 'var(--border)'}">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+          <div style="min-width:0">
+            <div style="font-weight:600;font-size:15px">${escHtml(ws.name)}</div>
+            <div style="font-size:12px;color:var(--text2);margin-top:2px">
+              ID: <span style="font-family:var(--mono)">${escHtml(ws.id)}</span>
+              &nbsp;·&nbsp; Max tasks: ${ws.limits?.maxTasks ?? '–'}
+              &nbsp;·&nbsp; Max executions: ${ws.limits?.maxExecutions ?? '–'}
+            </div>
+          </div>
+          <button class="btn btn-sm ${current && current.id === ws.id ? 'btn-primary' : 'btn-secondary'}"
+                  onclick="selectWorkspace('${escHtml(ws.id)}','${escHtml(ws.name)}')" style="flex-shrink:0">
+            ${current && current.id === ws.id ? 'Actif' : 'Sélectionner'}
+          </button>
+        </div>
+      </div>
+    `).join('');
+  } catch (err) {
+    container.innerHTML = `<div class="text-red">Erreur: ${escHtml(err.message)}</div>`;
+  }
+}
+
+function selectWorkspace(wsId, wsName) {
+  state.auth.workspace = { id: wsId, name: wsName };
+  updateAuthUI();
+  loadWorkspacesView();
+  showToast(`Workspace "${wsName}" sélectionné`, 'success');
+}
+
+async function createWorkspaceUI() {
+  const name     = qs('#ws-create-name')?.value?.trim();
+  const maxTasks = parseInt(qs('#ws-create-max-tasks')?.value || '1000', 10);
+  if (!name) { showToast('Nom requis', 'error'); return; }
+  try {
+    await API.createWorkspace({ name, limits: { maxTasks, maxExecutions: 500 } });
+    if (qs('#ws-create-name')) qs('#ws-create-name').value = '';
+    showToast(`Workspace "${name}" créé`, 'success');
+    loadWorkspacesView();
+  } catch (err) {
+    showToast(`Erreur: ${err.message}`, 'error');
+  }
+}
+
+// ── Audit Log View ───────────────────────────────────────────────────────────
+
+async function loadAuditLogView() {
+  const container = qs('#audit-log-list');
+  if (!container) return;
+  container.innerHTML = '<div class="text-muted text-sm">Chargement...</div>';
+  try {
+    const { entries } = await API.getAuditLog();
+    if (!entries || !entries.length) {
+      container.innerHTML = '<div class="empty-state"><div class="empty-icon">📋</div><p>Aucune entrée dans l\'audit log.</p></div>';
+      return;
+    }
+    container.innerHTML = `
+      <div style="overflow-x:auto">
+        <table style="width:100%;border-collapse:collapse;font-size:12px">
+          <thead>
+            <tr style="color:var(--text2);border-bottom:1px solid var(--border)">
+              <th style="text-align:left;padding:8px 10px;font-weight:500">Date</th>
+              <th style="text-align:left;padding:8px 10px;font-weight:500">Utilisateur</th>
+              <th style="text-align:left;padding:8px 10px;font-weight:500">Méthode</th>
+              <th style="text-align:left;padding:8px 10px;font-weight:500">Route</th>
+              <th style="text-align:left;padding:8px 10px;font-weight:500">Status</th>
+              <th style="text-align:left;padding:8px 10px;font-weight:500">Durée</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${entries.map((e) => `
+              <tr style="border-bottom:1px solid var(--border)">
+                <td style="padding:7px 10px;color:var(--text2);white-space:nowrap">${new Date(e.createdAt).toLocaleString('fr')}</td>
+                <td style="padding:7px 10px;font-weight:500">${escHtml(e.username || '–')}</td>
+                <td style="padding:7px 10px"><span class="badge badge-pending">${escHtml(e.method)}</span></td>
+                <td style="padding:7px 10px;font-family:var(--mono);font-size:11px">${escHtml(e.path)}</td>
+                <td style="padding:7px 10px">
+                  <span class="badge ${e.statusCode < 300 ? 'badge-completed' : e.statusCode < 500 ? 'badge-pending' : 'badge-error'}">${e.statusCode}</span>
+                </td>
+                <td style="padding:7px 10px;color:var(--text2)">${e.durationMs}ms</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+    `;
+  } catch (err) {
+    container.innerHTML = `<div class="text-red">Erreur: ${escHtml(err.message)}</div>`;
   }
 }
 
@@ -201,7 +426,11 @@ async function submitTask() {
   btn.innerHTML = '<div class="spinner"></div> Planification...';
 
   try {
-    const result = await API.createTask({ task, agentIds: state.selectedAgentIds });
+    const taskBody = { task, agentIds: state.selectedAgentIds };
+    if (state.auth.mode === 'multi' && state.auth.workspace) {
+      taskBody.workspaceId = state.auth.workspace.id;
+    }
+    const result = await API.createTask(taskBody);
     const plan = result.task.plan;
 
     qs('#plan-display').style.display = 'block';
@@ -1766,5 +1995,13 @@ window.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
-  navigate('dashboard');
+  // When any API call returns 401, redirect to login
+  window.addEventListener('auth:unauthorized', () => {
+    state.auth = { mode: state.auth.mode, user: null, workspace: null };
+    updateAuthUI();
+    showLoginOverlay();
+    showToast('Session expirée — veuillez vous reconnecter', 'error');
+  });
+
+  await initAuth();
 });

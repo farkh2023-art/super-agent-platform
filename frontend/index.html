@@ -11,6 +11,38 @@
   <script>mermaid.initialize({ startOnLoad: false, theme: 'dark', securityLevel: 'loose' });</script>
 </head>
 <body>
+
+  <!-- ╔═══════════════════════════════════════╗ -->
+  <!-- ║  LOGIN OVERLAY (Phase 6B)             ║ -->
+  <!-- ╚═══════════════════════════════════════╝ -->
+  <div id="login-overlay" style="display:none;position:fixed;inset:0;background:var(--bg);z-index:9999;align-items:center;justify-content:center">
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:40px;width:360px;max-width:90vw;box-shadow:var(--shadow)">
+      <div style="text-align:center;margin-bottom:28px">
+        <div style="font-size:40px;margin-bottom:10px">⚡</div>
+        <h2 style="font-size:20px;font-weight:700;margin-bottom:4px">SuperAgent Platform</h2>
+        <p style="font-size:13px;color:var(--text2)">Mode multi-utilisateur — connexion requise</p>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:14px">
+        <div>
+          <label style="font-size:12px;color:var(--text2);display:block;margin-bottom:6px">Identifiant</label>
+          <input id="login-username" type="text" class="form-input" placeholder="Nom d'utilisateur"
+                 autocomplete="username" style="width:100%"
+                 onkeydown="if(event.key==='Enter')doLogin()">
+        </div>
+        <div>
+          <label style="font-size:12px;color:var(--text2);display:block;margin-bottom:6px">Mot de passe</label>
+          <input id="login-password" type="password" class="form-input" placeholder="••••••••"
+                 autocomplete="current-password" style="width:100%"
+                 onkeydown="if(event.key==='Enter')doLogin()">
+        </div>
+        <div id="login-error" style="display:none;color:var(--red);font-size:12px;padding:8px 10px;background:rgba(239,68,68,0.1);border-radius:6px;border:1px solid rgba(239,68,68,0.3)"></div>
+        <button id="login-btn" class="btn btn-primary" onclick="doLogin()" style="width:100%;justify-content:center;margin-top:4px">
+          Se connecter
+        </button>
+      </div>
+    </div>
+  </div>
+
   <div class="app-layout">
 
     <!-- ── Sidebar ── -->
@@ -65,9 +97,28 @@
           <span class="nav-icon">⚙️</span>
           <span>Paramètres</span>
         </button>
+        <!-- Auth nav items — visible only in multi-user mode -->
+        <button class="nav-item" data-view="workspaces" id="nav-workspaces" style="display:none">
+          <span class="nav-icon">🏢</span>
+          <span>Workspaces</span>
+        </button>
+        <button class="nav-item" data-view="audit-log" id="nav-audit-log" style="display:none">
+          <span class="nav-icon">🔎</span>
+          <span>Audit Log</span>
+        </button>
       </nav>
 
       <div class="sidebar-footer">
+        <!-- User info bar — visible only in multi-user mode when logged in -->
+        <div id="auth-user-bar" style="display:none;padding:8px 14px 10px;border-bottom:1px solid var(--border);margin-bottom:8px">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:6px">
+            <div style="min-width:0">
+              <div style="font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" id="auth-username-label">–</div>
+              <div style="font-size:11px;color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis" id="auth-workspace-label"></div>
+            </div>
+            <button class="btn btn-sm" onclick="doLogout()" style="font-size:11px;padding:3px 8px;flex-shrink:0">Déco.</button>
+          </div>
+        </div>
         <div class="provider-badge" id="provider-badge">
           <div class="provider-dot mock" id="ws-dot" title="WebSocket"></div>
           <span id="provider-label">Mock Mode</span>
@@ -285,8 +336,17 @@
       <!-- ╚═══════════════════════════════════════╝ -->
       <div id="view-execute" class="view" style="display:none">
         <div class="page-header">
-          <h1>▶ Nouvelle Tâche</h1>
-          <p>Décrivez votre demande – le Super-Agent sélectionnera les meilleurs agents automatiquement.</p>
+          <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px">
+            <div>
+              <h1>▶ Nouvelle Tâche</h1>
+              <p>Décrivez votre demande – le Super-Agent sélectionnera les meilleurs agents automatiquement.</p>
+            </div>
+            <!-- Workspace context badge — visible only in multi-user mode with workspace selected -->
+            <div id="execute-workspace-badge" style="display:none;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px 14px;font-size:12px;white-space:nowrap;flex-shrink:0">
+              <div style="color:var(--text3);font-size:11px;margin-bottom:2px">Workspace actif</div>
+              <div style="font-weight:600;color:var(--accent)" id="execute-workspace-name">–</div>
+            </div>
+          </div>
         </div>
         <div class="page-body">
           <!-- Task Input -->
@@ -791,6 +851,65 @@ erreur Jest async</textarea>
             <div class="card-title">🤖 Performance par agent</div>
             <div id="metrics-agents-table">
               <div class="text-muted text-sm" style="padding:20px">Chargement...</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ╔═══════════════════════════════════════╗ -->
+      <!-- ║  VIEW: WORKSPACES (Phase 6B)          ║ -->
+      <!-- ╚═══════════════════════════════════════╝ -->
+      <div id="view-workspaces" class="view" style="display:none">
+        <div class="page-header">
+          <div style="display:flex;align-items:center;justify-content:space-between">
+            <div>
+              <h1>🏢 Workspaces</h1>
+              <p>Espaces de travail isolés — sélectionnez le workspace courant</p>
+            </div>
+            <button class="btn btn-secondary btn-sm" onclick="loadWorkspacesView()">🔄 Rafraîchir</button>
+          </div>
+        </div>
+        <div class="page-body">
+          <!-- Create workspace (admin only) -->
+          <div id="workspace-create-card" class="card mb-16" style="display:none">
+            <div class="card-title">➕ Créer un Workspace</div>
+            <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap">
+              <div style="flex:1;min-width:160px">
+                <label class="form-label">Nom</label>
+                <input id="ws-create-name" class="form-input" placeholder="Ex: Équipe A">
+              </div>
+              <div style="width:120px">
+                <label class="form-label">Max tasks</label>
+                <input id="ws-create-max-tasks" class="form-input" type="number" value="1000" min="1">
+              </div>
+              <button class="btn btn-primary" onclick="createWorkspaceUI()">Créer</button>
+            </div>
+          </div>
+
+          <!-- Workspace list -->
+          <div id="workspaces-list">
+            <div class="text-muted text-sm">Chargement...</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ╔═══════════════════════════════════════╗ -->
+      <!-- ║  VIEW: AUDIT LOG (Phase 6B)           ║ -->
+      <!-- ╚═══════════════════════════════════════╝ -->
+      <div id="view-audit-log" class="view" style="display:none">
+        <div class="page-header">
+          <div style="display:flex;align-items:center;justify-content:space-between">
+            <div>
+              <h1>🔎 Audit Log</h1>
+              <p>Journal d'audit des opérations mutantes — admin uniquement</p>
+            </div>
+            <button class="btn btn-secondary btn-sm" onclick="loadAuditLogView()">🔄 Rafraîchir</button>
+          </div>
+        </div>
+        <div class="page-body">
+          <div class="card">
+            <div id="audit-log-list">
+              <div class="text-muted text-sm">Chargement...</div>
             </div>
           </div>
         </div>
