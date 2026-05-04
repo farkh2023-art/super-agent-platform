@@ -26,10 +26,43 @@ router.get('/search', async (req, res) => {
   }
 });
 
+// GET /api/memory/export
+router.get('/export', (req, res) => {
+  const chunks = listChunks().map(({ embedding, ...c }) => c);
+  res.setHeader('Content-Disposition', 'attachment; filename="memory_export.json"');
+  res.json({ chunks, total: chunks.length, exportedAt: new Date().toISOString() });
+});
+
+// POST /api/memory/import
+router.post('/import', async (req, res) => {
+  const { chunks } = req.body;
+  if (!Array.isArray(chunks) || chunks.length === 0) {
+    return res.status(400).json({ error: '"chunks" doit être un tableau non vide' });
+  }
+  const imported = [];
+  for (const c of chunks) {
+    if (!c.content || typeof c.content !== 'string') continue;
+    const chunk = await addChunk({
+      content: c.content,
+      source: c.source || 'import',
+      agentId: c.agentId || null,
+      tags: c.tags || [],
+    }).catch(() => null);
+    if (chunk) { const { embedding, ...safe } = chunk; imported.push(safe); }
+  }
+  res.json({ imported: imported.length, chunks: imported });
+});
+
 // GET /api/memory
 router.get('/', (req, res) => {
-  const chunks = listChunks().map(({ embedding, ...c }) => c);
-  res.json({ chunks, total: chunks.length });
+  const limit  = Math.min(parseInt(req.query.limit  || '50',  10), 200);
+  const offset = Math.max(parseInt(req.query.offset || '0',   10), 0);
+  const all    = listChunks()
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+    .map(({ embedding, ...c }) => c);
+  const total  = all.length;
+  const chunks = all.slice(offset, offset + limit);
+  res.json({ chunks, total, limit, offset, hasMore: offset + limit < total });
 });
 
 // POST /api/memory

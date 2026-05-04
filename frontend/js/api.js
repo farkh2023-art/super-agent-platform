@@ -26,7 +26,10 @@ const API = {
   createExecution: (body) => apiFetch('/executions', { method: 'POST', body: JSON.stringify(body) }),
   runExecution: (id) => apiFetch(`/executions/${id}/run`, { method: 'POST' }),
   cancelExecution: (id) => apiFetch(`/executions/${id}/cancel`, { method: 'POST' }),
-  getExecutions: () => apiFetch('/executions'),
+  getExecutions: (params = {}) => {
+    const qs = new URLSearchParams(params).toString();
+    return apiFetch(`/executions${qs ? '?' + qs : ''}`);
+  },
   getExecution: (id) => apiFetch(`/executions/${id}`),
   deleteExecution: (id) => apiFetch(`/executions/${id}`, { method: 'DELETE' }),
   getLogs: (id) => apiFetch(`/executions/${id}/logs`),
@@ -81,12 +84,19 @@ const API = {
   triggerSchedule: (id) => apiFetch(`/schedules/${id}/trigger`, { method: 'POST' }),
 
   // Memory
-  getMemory: () => apiFetch('/memory'),
+  getMemory: (params = {}) => {
+    const qs = new URLSearchParams(params).toString();
+    return apiFetch(`/memory${qs ? '?' + qs : ''}`);
+  },
   getMemoryStats: () => apiFetch('/memory/stats'),
   addMemoryChunk: (body) => apiFetch('/memory', { method: 'POST', body: JSON.stringify(body) }),
   searchMemory: (q, limit = 5) => apiFetch(`/memory/search?q=${encodeURIComponent(q)}&limit=${limit}`),
   deleteMemoryChunk: (id) => apiFetch(`/memory/${id}`, { method: 'DELETE' }),
   clearMemory: () => apiFetch('/memory', { method: 'DELETE' }),
+  exportMemory: () => apiFetch('/memory/export'),
+  importMemory: (chunks) => apiFetch('/memory/import', { method: 'POST', body: JSON.stringify({ chunks }) }),
+  exportSchedules: () => apiFetch('/schedules/export'),
+  importSchedules: (schedules) => apiFetch('/schedules/import', { method: 'POST', body: JSON.stringify({ schedules }) }),
 
   // Metrics
   getMetrics: () => apiFetch('/metrics'),

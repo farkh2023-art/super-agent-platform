@@ -565,7 +565,14 @@
               <label class="form-label">Agents (laisser vide = sélection automatique)</label>
               <div id="sched-agent-chips" style="display:flex;flex-wrap:wrap;gap:6px;min-height:36px;padding:6px;background:var(--bg3);border-radius:8px"></div>
             </div>
-            <button class="btn btn-primary" onclick="createSchedule()">💾 Créer le Schedule</button>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+              <button class="btn btn-primary" onclick="createSchedule()">💾 Créer le Schedule</button>
+              <button class="btn btn-secondary" onclick="exportSchedulesUI()">📤 Exporter JSON</button>
+              <label class="btn btn-secondary" style="cursor:pointer" title="Importer des schedules depuis un fichier JSON">
+                📥 Importer JSON
+                <input type="file" accept=".json" style="display:none" onchange="importSchedulesFile(this)">
+              </label>
+            </div>
           </div>
           <div id="schedules-list"></div>
         </div>
@@ -617,6 +624,11 @@
                 <option value="context">Contexte</option>
               </select>
               <button class="btn btn-primary" onclick="addMemoryChunkUI()">➕ Ajouter</button>
+              <button class="btn btn-secondary" onclick="exportMemoryUI()">📤 Exporter</button>
+              <label class="btn btn-secondary" style="cursor:pointer">
+                📥 Importer
+                <input type="file" accept=".json" style="display:none" onchange="importMemoryFile(this)">
+              </label>
             </div>
           </div>
 

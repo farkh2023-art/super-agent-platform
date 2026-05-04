@@ -52,10 +52,21 @@ router.post('/:id/cancel', (req, res) => {
 
 // GET /api/executions
 router.get('/', (req, res) => {
-  const executions = storage
+  const all = storage
     .findAll('executions')
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-  res.json({ executions, total: executions.length });
+  const total = all.length;
+  const limitRaw = parseInt(req.query.limit || '0', 10);
+  if (limitRaw > 0) {
+    const limit  = Math.min(limitRaw, 200);
+    const offset = Math.max(parseInt(req.query.offset || '0', 10), 0);
+    return res.json({
+      executions: all.slice(offset, offset + limit),
+      total, limit, offset,
+      hasMore: offset + limit < total,
+    });
+  }
+  res.json({ executions: all, total });
 });
 
 // GET /api/executions/:id

@@ -1,12 +1,12 @@
 [
   {
-    "id": "5845500f-358f-4124-b33b-dc4aee6ac219",
-    "executionId": "b1ca2516-37f6-4776-9cb3-1edb00f8bad6",
+    "id": "819fa4da-2832-4eea-9176-84d8b660b764",
+    "executionId": "094b3d19-c980-46e7-8a8d-bf1c5a29534f",
     "agentId": "data-lineage-fr",
     "agentName": "DataLineage-FR – Lignée de Données",
-    "stepId": "0c3f9e36-5129-4dfb-b8f6-90f29c13300a",
+    "stepId": "2b8896d1-984b-44b7-a6f9-37b190e80587",
     "content": "## Rapport de Lignée de Données\n\n### Graphe de Dépendances (Mermaid)\n```mermaid\ngraph LR\n    RAW_CLAIMS --> STAGING_CLAIMS\n    STAGING_CLAIMS --> PROCESSED_CLAIMS\n    PROCESSED_CLAIMS --> FINAL_REPORT\n    RAW_MEMBERS --> STAGING_MEMBERS\n    STAGING_MEMBERS --> PROCESSED_CLAIMS\n```\n\n### Analyse d'Impact\nModifier **STAGING_CLAIMS** affecte : PROCESSED_CLAIMS, FINAL_REPORT (2 tables en aval).\n\n### Risques Identifiés\n- Couplage fort entre STAGING et PROCESSED\n- Absence de contrôle de version sur les procédures stockées\n- Pas de journalisation des transformations intermédiaires\n\n### Recommandations\n1. Implémenter un système de versioning des schémas\n2. Ajouter des métadonnées de lignée dans chaque transformation\n3. Mettre en place des alertes automatiques sur les changements de schéma",
     "format": "markdown",
-    "createdAt": "2026-05-04T03:48:53.261Z"
+    "createdAt": "2026-05-04T04:25:46.315Z"
   }
 ]

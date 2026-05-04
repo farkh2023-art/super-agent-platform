@@ -12,6 +12,10 @@ let state = {
   activeView: 'dashboard',
   settings: { aiProvider: 'mock' },
   wsConnected: false,
+  pages: {
+    executions: { offset: 0, limit: 20, total: 0 },
+    memory:     { offset: 0, limit: 20, total: 0 },
+  },
 };
 
 // ── Routing ──────────────────────────────────────────────────────────────────
@@ -315,17 +319,22 @@ function clearLogs() {
 }
 
 // ── Executions View ──────────────────────────────────────────────────────────
-async function loadExecutionsView() {
+async function loadExecutionsView(resetPage = false) {
+  if (resetPage) state.pages.executions.offset = 0;
+  const { offset, limit } = state.pages.executions;
   const container = qs('#executions-list');
   container.innerHTML = '<div class="text-muted text-sm" style="padding:20px">Chargement...</div>';
   try {
-    const data = await API.getExecutions();
+    const data = await API.getExecutions({ limit, offset });
     state.executions = data.executions;
-    if (state.executions.length === 0) {
+    state.pages.executions.total = data.total;
+
+    if (data.total === 0) {
       container.innerHTML = `<div class="empty-state"><div class="empty-icon">📭</div><p>Aucune exécution.<br>Créez une tâche depuis <a href="#" onclick="navigate('execute')" style="color:var(--accent)">Nouvelle Tâche</a>.</p></div>`;
       return;
     }
-    container.innerHTML = state.executions.map((e) => `
+
+    const cards = state.executions.map((e) => `
       <div class="card mb-12">
         <div class="flex items-center justify-between mb-8">
           <div class="flex items-center gap-8">
@@ -346,6 +355,8 @@ async function loadExecutionsView() {
         </div>
       </div>
     `).join('');
+
+    container.innerHTML = cards + renderPaginationBar('executions', data);
   } catch (err) {
     container.innerHTML = `<div class="text-red">Erreur: ${escHtml(err.message)}</div>`;
   }
@@ -916,16 +927,43 @@ async function deleteScheduleUI(id) {
 }
 
 // ── Memory View ───────────────────────────────────────────────────────────────
-async function loadMemoryView() {
+async function loadMemoryView(resetPage = false) {
+  if (resetPage) state.pages.memory.offset = 0;
+  const { offset, limit } = state.pages.memory;
   try {
     const [statsData, chunksData] = await Promise.all([
       API.getMemoryStats(),
-      API.getMemory(),
+      API.getMemory({ limit, offset }),
     ]);
+    state.pages.memory.total = chunksData.total;
     renderMemoryStats(statsData);
-    renderMemoryChunks(chunksData.chunks);
     const countEl = qs('#memory-count');
     if (countEl) countEl.textContent = `${chunksData.total} chunk(s)`;
+
+    const container = qs('#memory-chunks-list');
+    if (container) {
+      if (!chunksData.chunks.length && chunksData.total === 0) {
+        container.innerHTML = '<div class="empty-state"><div class="empty-icon">🧠</div><p>Aucun chunk. Ajoutez du contexte ci-dessus.</p></div>';
+      } else {
+        container.innerHTML = chunksData.chunks.map((c) => `
+          <div class="card mb-8" style="padding:12px">
+            <div class="flex items-center justify-between mb-4">
+              <div style="display:flex;gap:6px;align-items:center">
+                <span class="badge badge-pending">${escHtml(c.source)}</span>
+                ${c.agentId ? `<span class="badge badge-running" style="font-size:10px">${escHtml(c.agentId)}</span>` : ''}
+              </div>
+              <div style="display:flex;gap:6px;align-items:center">
+                <span class="text-sm text-muted">${formatDate(c.createdAt)}</span>
+                <button class="btn btn-sm btn-danger" onclick="deleteChunkUI('${c.id}')">🗑</button>
+              </div>
+            </div>
+            <div style="font-size:12px;color:var(--text2);font-family:var(--mono);background:var(--bg3);padding:8px;border-radius:6px;white-space:pre-wrap;max-height:100px;overflow:hidden">
+              ${escHtml(c.content.substring(0, 300))}${c.content.length > 300 ? '…' : ''}
+            </div>
+          </div>
+        `).join('') + renderPaginationBar('memory', chunksData);
+      }
+    }
   } catch (err) {
     const c = qs('#memory-stats-content');
     if (c) c.innerHTML = `<div class="text-red">Erreur: ${escHtml(err.message)}</div>`;
@@ -1111,6 +1149,83 @@ function statusIcon(s) {
 
 function badgeHtml(status) {
   return `<span class="badge badge-${status.replace(/_.*/, '')}">${status}</span>`;
+}
+
+// ── Pagination ────────────────────────────────────────────────────────────────
+function renderPaginationBar(key, data) {
+  if (!data || !data.hasMore && data.offset === 0) return '';
+  const { offset, limit, total } = data;
+  const page = Math.floor(offset / limit) + 1;
+  const pages = Math.ceil(total / limit);
+  const from = offset + 1, to = Math.min(offset + limit, total);
+  return `
+    <div style="display:flex;gap:10px;align-items:center;justify-content:center;padding:14px 0;font-size:13px">
+      <button class="btn btn-sm btn-secondary" ${offset === 0 ? 'disabled' : ''}
+        onclick="changePage('${key}',-1)">◀ Précédent</button>
+      <span class="text-muted">${from}–${to} sur ${total} &nbsp;(page ${page}/${pages})</span>
+      <button class="btn btn-sm btn-secondary" ${!data.hasMore ? 'disabled' : ''}
+        onclick="changePage('${key}',1)">Suivant ▶</button>
+    </div>
+  `;
+}
+
+function changePage(key, dir) {
+  const p = state.pages[key];
+  if (!p) return;
+  p.offset = Math.max(0, p.offset + dir * p.limit);
+  if (key === 'executions') loadExecutionsView();
+  if (key === 'memory') loadMemoryView();
+}
+
+// ── Export / Import ───────────────────────────────────────────────────────────
+function downloadJson(data, filename) {
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename; a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+async function exportSchedulesUI() {
+  try {
+    const data = await API.exportSchedules();
+    downloadJson(data, `schedules_${new Date().toISOString().slice(0,10)}.json`);
+    showToast(`${data.total} schedule(s) exporté(s)`, 'success');
+  } catch (err) { showToast(`Erreur: ${err.message}`, 'error'); }
+}
+
+async function importSchedulesFile(input) {
+  const file = input.files[0];
+  if (!file) return;
+  try {
+    const data = JSON.parse(await file.text());
+    const schedules = data.schedules || (Array.isArray(data) ? data : []);
+    const res = await API.importSchedules(schedules);
+    showToast(`${res.imported} schedule(s) importé(s)`, 'success');
+    input.value = '';
+    loadSchedulesView();
+  } catch (err) { showToast(`Erreur import: ${err.message}`, 'error'); }
+}
+
+async function exportMemoryUI() {
+  try {
+    const data = await API.exportMemory();
+    downloadJson(data, `memory_${new Date().toISOString().slice(0,10)}.json`);
+    showToast(`${data.total} chunk(s) exporté(s)`, 'success');
+  } catch (err) { showToast(`Erreur: ${err.message}`, 'error'); }
+}
+
+async function importMemoryFile(input) {
+  const file = input.files[0];
+  if (!file) return;
+  try {
+    const data = JSON.parse(await file.text());
+    const chunks = data.chunks || (Array.isArray(data) ? data : []);
+    const res = await API.importMemory(chunks);
+    showToast(`${res.imported} chunk(s) importé(s)`, 'success');
+    input.value = '';
+    loadMemoryView(true);
+  } catch (err) { showToast(`Erreur import: ${err.message}`, 'error'); }
 }
 
 function formatInterval(ms) {

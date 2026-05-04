@@ -48,6 +48,41 @@ router.post('/', (req, res) => {
   res.status(201).json(schedule);
 });
 
+// GET /api/schedules/export  (must be before /:id)
+router.get('/export', (req, res) => {
+  const schedules = storage.findAll('schedules');
+  res.setHeader('Content-Disposition', 'attachment; filename="schedules_export.json"');
+  res.json({ schedules, total: schedules.length, exportedAt: new Date().toISOString() });
+});
+
+// POST /api/schedules/import  (must be before /:id)
+router.post('/import', (req, res) => {
+  const { schedules } = req.body;
+  if (!Array.isArray(schedules) || schedules.length === 0) {
+    return res.status(400).json({ error: '"schedules" doit être un tableau non vide' });
+  }
+  const imported = [];
+  for (const s of schedules) {
+    if (!s.name || !s.task || !s.intervalMs) continue;
+    const schedule = {
+      id: uuid(),
+      name: s.name,
+      task: s.task,
+      agentIds: Array.isArray(s.agentIds) ? s.agentIds : [],
+      intervalMs: s.intervalMs,
+      enabled: s.enabled !== false,
+      lastRunAt: null,
+      nextRunAt: new Date(Date.now() + s.intervalMs).toISOString(),
+      runCount: 0,
+      lastExecutionId: null,
+      createdAt: new Date().toISOString(),
+    };
+    storage.create('schedules', schedule);
+    imported.push(schedule);
+  }
+  res.json({ imported: imported.length, schedules: imported });
+});
+
 // GET /api/schedules/:id
 router.get('/:id', (req, res) => {
   const schedule = storage.findById('schedules', req.params.id);
