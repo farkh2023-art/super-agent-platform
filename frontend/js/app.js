@@ -32,15 +32,20 @@ function navigate(view) {
     case 'workflows': loadWorkflowsView(); break;
     case 'settings': loadSettingsView(); break;
     case 'search': loadSearchView(); break;
+    case 'schedules': loadSchedulesView(); break;
+    case 'memory': loadMemoryView(); break;
+    case 'metrics': loadMetricsView(); break;
   }
 }
 
 // ── Dashboard ────────────────────────────────────────────────────────────────
 async function loadDashboard() {
   try {
-    const [stats, execData] = await Promise.all([
+    const [stats, execData, memStats, schedData] = await Promise.all([
       API.getDashboardStats(),
       API.getExecutions(),
+      API.getMemoryStats().catch(() => ({ total: 0 })),
+      API.getSchedules().catch(() => ({ schedules: [] })),
     ]);
     state.executions = execData.executions;
 
@@ -60,7 +65,11 @@ async function loadDashboard() {
     qs('#sys-concurrency').textContent  = `${stats.concurrency.active}/${stats.concurrency.max} actifs`;
     qs('#sys-logs').textContent         = stats.logsToday;
     qs('#sys-uptime').textContent       = h > 0 ? `${h}h ${m}m` : `${m}m ${s}s`;
-    qs('#sys-wf-runs').textContent      = stats.workflowRuns.total;
+    qs('#sys-wf-runs').textContent       = stats.workflowRuns.total;
+    const memEl = qs('#sys-memory-chunks');
+    if (memEl) memEl.textContent = memStats.total;
+    const schedEl = qs('#sys-schedules');
+    if (schedEl) schedEl.textContent = (schedData.schedules || []).filter((s) => s.enabled).length;
     qs('#sys-last-exec').textContent    = stats.lastExecution
       ? `${escHtml(stats.lastExecution.task)} (${stats.lastExecution.status})`
       : 'Aucune';
@@ -222,6 +231,7 @@ async function launchExecution(plan, task) {
       task,
       agentIds: plan.agents.map((a) => a.id),
       planText: plan.planText,
+      useMemory: qs('#use-memory-toggle')?.checked || false,
     });
     state.currentExecution = execution;
 
@@ -776,6 +786,306 @@ async function importWorkflowFile(input) {
   }
 }
 
+// ── Schedules View ───────────────────────────────────────────────────────────
+let schedSelectedAgentIds = [];
+
+async function loadSchedulesView() {
+  if (state.agents.length === 0) {
+    const data = await API.getAgents().catch(() => ({ agents: [] }));
+    state.agents = data.agents;
+  }
+  renderSchedAgentChips();
+
+  const container = qs('#schedules-list');
+  if (!container) return;
+  container.innerHTML = '<div class="text-muted text-sm" style="padding:20px">Chargement...</div>';
+  try {
+    const data = await API.getSchedules();
+    if (data.total === 0) {
+      container.innerHTML = '<div class="empty-state"><div class="empty-icon">📅</div><p>Aucun schedule. Créez-en un ci-dessus.</p></div>';
+      return;
+    }
+    container.innerHTML = data.schedules.map((s) => `
+      <div class="card mb-12">
+        <div class="flex items-center justify-between mb-8">
+          <div style="flex:1;min-width:0">
+            <div style="font-weight:600">${escHtml(s.name)}</div>
+            <div class="text-sm text-muted" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
+              ${escHtml(s.task.substring(0, 80))}${s.task.length > 80 ? '…' : ''}
+            </div>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center;margin-left:12px">
+            <label style="display:flex;align-items:center;gap:4px;font-size:12px;cursor:pointer;white-space:nowrap">
+              <input type="checkbox" ${s.enabled ? 'checked' : ''} onchange="toggleSchedule('${s.id}',this.checked)">
+              Actif
+            </label>
+            <button class="btn btn-sm btn-success" onclick="triggerScheduleNow('${s.id}')">▶ Déclencher</button>
+            <button class="btn btn-sm btn-danger" onclick="deleteScheduleUI('${s.id}')">🗑</button>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:6px;font-size:12px;color:var(--text2)">
+          <div><strong>Intervalle :</strong> ${formatInterval(s.intervalMs)}</div>
+          <div><strong>Exécutions :</strong> ${s.runCount}</div>
+          <div><strong>Dernière :</strong> ${s.lastRunAt ? formatDate(s.lastRunAt) : 'Jamais'}</div>
+          <div><strong>Prochaine :</strong> ${s.nextRunAt ? formatDate(s.nextRunAt) : '–'}</div>
+          ${s.agentIds && s.agentIds.length ? `<div><strong>Agents :</strong> ${escHtml(s.agentIds.join(', '))}</div>` : ''}
+        </div>
+      </div>
+    `).join('');
+  } catch (err) {
+    container.innerHTML = `<div class="text-red">Erreur: ${escHtml(err.message)}</div>`;
+  }
+}
+
+function renderSchedAgentChips() {
+  const container = qs('#sched-agent-chips');
+  if (!container) return;
+  container.innerHTML = state.agents.map((a) => `
+    <div class="agent-chip ${schedSelectedAgentIds.includes(a.id) ? 'selected' : ''}"
+         onclick="toggleSchedAgent('${a.id}')" style="font-size:11px">
+      <span>${a.emoji}</span><span>${escHtml(a.name.split(' – ')[0])}</span>
+    </div>
+  `).join('');
+}
+
+function toggleSchedAgent(id) {
+  const idx = schedSelectedAgentIds.indexOf(id);
+  if (idx === -1) schedSelectedAgentIds.push(id);
+  else schedSelectedAgentIds.splice(idx, 1);
+  renderSchedAgentChips();
+}
+
+function schedIntervalChange() {
+  const sel = qs('#sched-interval');
+  const custom = qs('#sched-custom-interval');
+  if (custom) custom.style.display = sel.value === 'custom' ? 'block' : 'none';
+}
+
+async function createSchedule() {
+  const name = qs('#sched-name')?.value.trim();
+  const task = qs('#sched-task')?.value.trim();
+  const intervalSel = qs('#sched-interval')?.value;
+  const intervalMs = intervalSel === 'custom'
+    ? parseInt(qs('#sched-custom-ms')?.value || '0', 10)
+    : parseInt(intervalSel || '3600000', 10);
+
+  if (!name) { showToast('Nom requis', 'error'); return; }
+  if (!task) { showToast('Tâche requise', 'error'); return; }
+  if (!intervalMs || intervalMs <= 0) { showToast('Intervalle invalide', 'error'); return; }
+
+  try {
+    await API.createSchedule({ name, task, agentIds: schedSelectedAgentIds, intervalMs });
+    showToast('Schedule créé !', 'success');
+    qs('#sched-name').value = '';
+    qs('#sched-task').value = '';
+    schedSelectedAgentIds = [];
+    loadSchedulesView();
+  } catch (err) {
+    showToast(`Erreur: ${err.message}`, 'error');
+  }
+}
+
+async function toggleSchedule(id, enabled) {
+  try {
+    await API.updateSchedule(id, { enabled });
+    showToast(enabled ? 'Schedule activé' : 'Schedule désactivé', 'success');
+  } catch (err) {
+    showToast(`Erreur: ${err.message}`, 'error');
+  }
+}
+
+async function triggerScheduleNow(id) {
+  try {
+    const res = await API.triggerSchedule(id);
+    showToast(`Exécution lancée (${res.executionId?.slice(0, 8)}…)`, 'success');
+    loadSchedulesView();
+  } catch (err) {
+    showToast(`Erreur: ${err.message}`, 'error');
+  }
+}
+
+async function deleteScheduleUI(id) {
+  if (!confirm('Supprimer ce schedule ?')) return;
+  try {
+    await API.deleteSchedule(id);
+    showToast('Schedule supprimé', 'success');
+    loadSchedulesView();
+  } catch (err) {
+    showToast(`Erreur: ${err.message}`, 'error');
+  }
+}
+
+// ── Memory View ───────────────────────────────────────────────────────────────
+async function loadMemoryView() {
+  try {
+    const [statsData, chunksData] = await Promise.all([
+      API.getMemoryStats(),
+      API.getMemory(),
+    ]);
+    renderMemoryStats(statsData);
+    renderMemoryChunks(chunksData.chunks);
+    const countEl = qs('#memory-count');
+    if (countEl) countEl.textContent = `${chunksData.total} chunk(s)`;
+  } catch (err) {
+    const c = qs('#memory-stats-content');
+    if (c) c.innerHTML = `<div class="text-red">Erreur: ${escHtml(err.message)}</div>`;
+  }
+}
+
+function renderMemoryStats(s) {
+  const c = qs('#memory-stats-content');
+  if (!c) return;
+  const sources = Object.entries(s.sources || {}).map(([k, v]) => `<span class="badge badge-pending" style="margin:2px">${escHtml(k)}: ${v}</span>`).join('');
+  c.innerHTML = `
+    <div style="display:flex;flex-direction:column;gap:6px;font-size:13px">
+      <div><strong>Chunks :</strong> ${s.total}</div>
+      <div><strong>Sources :</strong> ${sources || '<em>–</em>'}</div>
+      <div><strong>Embeddings :</strong> ${s.embeddingsEnabled ? `✅ Ollama (${escHtml(s.embeddingModel)})` : '⬜ Keyword search'}</div>
+      ${s.embeddingsEnabled ? `<div><strong>Vectorisés :</strong> ${s.embeddingsCount} / ${s.total}</div>` : ''}
+    </div>
+  `;
+}
+
+function renderMemoryChunks(chunks) {
+  const container = qs('#memory-chunks-list');
+  if (!container) return;
+  if (!chunks || chunks.length === 0) {
+    container.innerHTML = '<div class="empty-state"><div class="empty-icon">🧠</div><p>Aucun chunk. Ajoutez du contexte ci-dessus.</p></div>';
+    return;
+  }
+  container.innerHTML = chunks.map((c) => `
+    <div class="card mb-8" style="padding:12px">
+      <div class="flex items-center justify-between mb-4">
+        <div style="display:flex;gap:6px;align-items:center">
+          <span class="badge badge-pending">${escHtml(c.source)}</span>
+          ${c.agentId ? `<span class="badge badge-running" style="font-size:10px">${escHtml(c.agentId)}</span>` : ''}
+        </div>
+        <div style="display:flex;gap:6px;align-items:center">
+          <span class="text-sm text-muted">${formatDate(c.createdAt)}</span>
+          <button class="btn btn-sm btn-danger" onclick="deleteChunkUI('${c.id}')">🗑</button>
+        </div>
+      </div>
+      <div style="font-size:12px;color:var(--text2);font-family:var(--mono);background:var(--bg3);padding:8px;border-radius:6px;white-space:pre-wrap;max-height:100px;overflow:hidden">
+        ${escHtml(c.content.substring(0, 300))}${c.content.length > 300 ? '…' : ''}
+      </div>
+    </div>
+  `).join('');
+}
+
+async function searchMemoryChunks() {
+  const q = qs('#memory-search-input')?.value.trim();
+  if (!q) { showToast('Entrez un terme de recherche', 'error'); return; }
+  const container = qs('#memory-search-results');
+  if (container) container.innerHTML = '<div class="text-muted text-sm">Recherche...</div>';
+  try {
+    const data = await API.searchMemory(q, 5);
+    if (container) {
+      if (data.total === 0) {
+        container.innerHTML = '<div class="text-muted text-sm">Aucun résultat</div>';
+      } else {
+        container.innerHTML = data.results.map((r) => `
+          <div style="background:var(--bg3);border-radius:6px;padding:8px;margin-bottom:6px;font-size:12px">
+            <div style="color:var(--accent);font-size:10px;margin-bottom:2px">${escHtml(r.source)}${r.agentId ? ' · ' + escHtml(r.agentId) : ''}</div>
+            <div style="color:var(--text2);font-family:var(--mono)">${escHtml(r.content.substring(0, 200))}${r.content.length > 200 ? '…' : ''}</div>
+          </div>
+        `).join('');
+      }
+    }
+  } catch (err) {
+    if (container) container.innerHTML = `<div class="text-red">${escHtml(err.message)}</div>`;
+  }
+}
+
+async function addMemoryChunkUI() {
+  const content = qs('#memory-content')?.value.trim();
+  const source = qs('#memory-source')?.value || 'manual';
+  if (!content) { showToast('Contenu requis', 'error'); return; }
+  try {
+    await API.addMemoryChunk({ content, source });
+    showToast('Chunk ajouté (secrets filtrés automatiquement)', 'success');
+    qs('#memory-content').value = '';
+    loadMemoryView();
+  } catch (err) {
+    showToast(`Erreur: ${err.message}`, 'error');
+  }
+}
+
+async function deleteChunkUI(id) {
+  try {
+    await API.deleteMemoryChunk(id);
+    showToast('Chunk supprimé', 'success');
+    loadMemoryView();
+  } catch (err) {
+    showToast(`Erreur: ${err.message}`, 'error');
+  }
+}
+
+async function clearAllMemory() {
+  if (!confirm('Effacer toute la mémoire ?')) return;
+  try {
+    await API.clearMemory();
+    showToast('Mémoire effacée', 'success');
+    loadMemoryView();
+  } catch (err) {
+    showToast(`Erreur: ${err.message}`, 'error');
+  }
+}
+
+// ── Metrics View ──────────────────────────────────────────────────────────────
+async function loadMetricsView() {
+  try {
+    const data = await API.getMetrics();
+    const g = data.global;
+    qs('#metric-total').textContent        = g.total;
+    qs('#metric-completed').textContent    = g.completed;
+    qs('#metric-errors').textContent       = (g.completedWithErrors || 0) + (g.failed || 0);
+    qs('#metric-success-rate').textContent = g.successRate != null ? `${g.successRate}%` : '–';
+    qs('#metric-avg-duration').textContent = g.avgDurationMs != null
+      ? g.avgDurationMs < 1000 ? `${g.avgDurationMs}ms` : `${(g.avgDurationMs / 1000).toFixed(1)}s`
+      : '–';
+
+    const table = qs('#metrics-agents-table');
+    const agents = Object.values(data.byAgent || {}).sort((a, b) => b.total - a.total);
+    if (!agents.length) {
+      table.innerHTML = '<div class="text-muted text-sm" style="padding:20px">Aucune donnée par agent (lancez des exécutions).</div>';
+      return;
+    }
+    table.innerHTML = `
+      <table style="width:100%;border-collapse:collapse;font-size:13px">
+        <thead>
+          <tr style="color:var(--text3);font-size:11px;text-transform:uppercase;border-bottom:1px solid var(--border)">
+            <th style="text-align:left;padding:8px 4px">Agent</th>
+            <th style="text-align:center;padding:8px 4px">Total</th>
+            <th style="text-align:center;padding:8px 4px">Réussis</th>
+            <th style="text-align:center;padding:8px 4px">Erreurs</th>
+            <th style="text-align:center;padding:8px 4px">Taux</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${agents.map((a) => {
+            const rate = a.successRate != null ? a.successRate : null;
+            const rateColor = rate == null ? 'var(--text3)' : rate >= 80 ? 'var(--green)' : rate >= 50 ? 'var(--yellow)' : 'var(--red)';
+            return `
+              <tr style="border-bottom:1px solid var(--border)">
+                <td style="padding:8px 4px;font-family:var(--mono);font-size:12px">${escHtml(a.agentId)}</td>
+                <td style="text-align:center;padding:8px 4px">${a.total}</td>
+                <td style="text-align:center;padding:8px 4px;color:var(--green)">${a.done}</td>
+                <td style="text-align:center;padding:8px 4px;color:var(--red)">${a.error}</td>
+                <td style="text-align:center;padding:8px 4px;color:${rateColor};font-weight:600">
+                  ${rate != null ? rate + '%' : '–'}
+                </td>
+              </tr>
+            `;
+          }).join('')}
+        </tbody>
+      </table>
+    `;
+  } catch (err) {
+    const t = qs('#metrics-agents-table');
+    if (t) t.innerHTML = `<div class="text-red" style="padding:20px">Erreur: ${escHtml(err.message)}</div>`;
+  }
+}
+
 // ── Utils ────────────────────────────────────────────────────────────────────
 function qs(sel) { return document.querySelector(sel); }
 function escHtml(str) {
@@ -801,6 +1111,14 @@ function statusIcon(s) {
 
 function badgeHtml(status) {
   return `<span class="badge badge-${status.replace(/_.*/, '')}">${status}</span>`;
+}
+
+function formatInterval(ms) {
+  if (!ms) return '–';
+  const s = ms / 1000;
+  if (s < 3600) return `${Math.round(s / 60)} min`;
+  if (s < 86400) return `${Math.round(s / 3600)} h`;
+  return `${Math.round(s / 86400)} j`;
 }
 
 function formatDate(iso) {

@@ -72,6 +72,25 @@ const API = {
 
   // Health
   health: () => apiFetch('/health'),
+
+  // Schedules
+  getSchedules: () => apiFetch('/schedules'),
+  createSchedule: (body) => apiFetch('/schedules', { method: 'POST', body: JSON.stringify(body) }),
+  updateSchedule: (id, body) => apiFetch(`/schedules/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
+  deleteSchedule: (id) => apiFetch(`/schedules/${id}`, { method: 'DELETE' }),
+  triggerSchedule: (id) => apiFetch(`/schedules/${id}/trigger`, { method: 'POST' }),
+
+  // Memory
+  getMemory: () => apiFetch('/memory'),
+  getMemoryStats: () => apiFetch('/memory/stats'),
+  addMemoryChunk: (body) => apiFetch('/memory', { method: 'POST', body: JSON.stringify(body) }),
+  searchMemory: (q, limit = 5) => apiFetch(`/memory/search?q=${encodeURIComponent(q)}&limit=${limit}`),
+  deleteMemoryChunk: (id) => apiFetch(`/memory/${id}`, { method: 'DELETE' }),
+  clearMemory: () => apiFetch('/memory', { method: 'DELETE' }),
+
+  // Metrics
+  getMetrics: () => apiFetch('/metrics'),
+  getAgentMetrics: () => apiFetch('/metrics/agents'),
 };
 
 window.API = API;

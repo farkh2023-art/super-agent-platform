@@ -49,6 +49,18 @@
           <span class="nav-icon">🔍</span>
           <span>Recherche</span>
         </button>
+        <button class="nav-item" data-view="schedules">
+          <span class="nav-icon">📅</span>
+          <span>Schedules</span>
+        </button>
+        <button class="nav-item" data-view="memory">
+          <span class="nav-icon">🧠</span>
+          <span>Mémoire</span>
+        </button>
+        <button class="nav-item" data-view="metrics">
+          <span class="nav-icon">📊</span>
+          <span>Métriques</span>
+        </button>
         <button class="nav-item" data-view="settings">
           <span class="nav-icon">⚙️</span>
           <span>Paramètres</span>
@@ -162,6 +174,14 @@
                 <div style="font-size:11px;color:var(--text3);margin-bottom:4px">Workflow runs</div>
                 <div style="font-weight:600;font-size:14px" id="sys-wf-runs">–</div>
               </div>
+              <div style="background:var(--bg3);border-radius:8px;padding:12px">
+                <div style="font-size:11px;color:var(--text3);margin-bottom:4px">Mémoire (chunks)</div>
+                <div style="font-weight:600;font-size:14px" id="sys-memory-chunks">–</div>
+              </div>
+              <div style="background:var(--bg3);border-radius:8px;padding:12px">
+                <div style="font-size:11px;color:var(--text3);margin-bottom:4px">Schedules actifs</div>
+                <div style="font-weight:600;font-size:14px" id="sys-schedules">–</div>
+              </div>
             </div>
           </div>
 
@@ -231,6 +251,13 @@
               <div id="agent-chips" class="agent-selector">
                 <div class="text-muted text-sm">Chargement des agents...</div>
               </div>
+            </div>
+
+            <div style="margin-top:10px">
+              <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;color:var(--text2)">
+                <input type="checkbox" id="use-memory-toggle">
+                🧠 Utiliser la mémoire (injecte le contexte pertinent)
+              </label>
             </div>
 
             <div class="btn-group">
@@ -489,6 +516,161 @@
             </div>
           </div>
           <div id="search-results"></div>
+        </div>
+      </div>
+
+      <!-- ╔═══════════════════════════════════════╗ -->
+      <!-- ║  VIEW: SCHEDULES                      ║ -->
+      <!-- ╚═══════════════════════════════════════╝ -->
+      <div id="view-schedules" class="view" style="display:none">
+        <div class="page-header">
+          <div style="display:flex;align-items:center;justify-content:space-between">
+            <div>
+              <h1>📅 Schedules</h1>
+              <p>Planifiez des tâches récurrentes à intervalles réguliers</p>
+            </div>
+            <button class="btn btn-secondary btn-sm" onclick="loadSchedulesView()">🔄 Rafraîchir</button>
+          </div>
+        </div>
+        <div class="page-body">
+          <div class="card mb-16">
+            <div class="card-title">➕ Nouveau Schedule</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+              <div class="form-group" style="margin-bottom:0">
+                <label class="form-label">Nom</label>
+                <input id="sched-name" class="form-input" placeholder="Ex: Analyse SQL quotidienne">
+              </div>
+              <div class="form-group" style="margin-bottom:0">
+                <label class="form-label">Intervalle</label>
+                <select id="sched-interval" class="form-select" onchange="schedIntervalChange()">
+                  <option value="900000">Toutes les 15 min</option>
+                  <option value="1800000">Toutes les 30 min</option>
+                  <option value="3600000" selected>Toutes les heures</option>
+                  <option value="21600000">Toutes les 6 heures</option>
+                  <option value="43200000">Toutes les 12 heures</option>
+                  <option value="86400000">Chaque jour</option>
+                  <option value="custom">Personnalisé (ms)...</option>
+                </select>
+              </div>
+            </div>
+            <div id="sched-custom-interval" style="display:none;margin-bottom:12px">
+              <label class="form-label">Intervalle personnalisé (ms)</label>
+              <input id="sched-custom-ms" class="form-input" type="number" min="60000" placeholder="60000">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Tâche</label>
+              <textarea id="sched-task" class="form-input" rows="2" placeholder="Description de la tâche à exécuter automatiquement..."></textarea>
+            </div>
+            <div class="form-group" style="margin-bottom:12px">
+              <label class="form-label">Agents (laisser vide = sélection automatique)</label>
+              <div id="sched-agent-chips" style="display:flex;flex-wrap:wrap;gap:6px;min-height:36px;padding:6px;background:var(--bg3);border-radius:8px"></div>
+            </div>
+            <button class="btn btn-primary" onclick="createSchedule()">💾 Créer le Schedule</button>
+          </div>
+          <div id="schedules-list"></div>
+        </div>
+      </div>
+
+      <!-- ╔═══════════════════════════════════════╗ -->
+      <!-- ║  VIEW: MEMORY                         ║ -->
+      <!-- ╚═══════════════════════════════════════╝ -->
+      <div id="view-memory" class="view" style="display:none">
+        <div class="page-header">
+          <div style="display:flex;align-items:center;justify-content:space-between">
+            <div>
+              <h1>🧠 Mémoire</h1>
+              <p>Contexte persistant injecté dans les exécutions (MEMORY_ENABLED=true pour activer l'injection)</p>
+            </div>
+            <div style="display:flex;gap:8px">
+              <button class="btn btn-secondary btn-sm" onclick="loadMemoryView()">🔄 Rafraîchir</button>
+              <button class="btn btn-danger btn-sm" onclick="clearAllMemory()">🗑 Tout effacer</button>
+            </div>
+          </div>
+        </div>
+        <div class="page-body">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+            <div class="card">
+              <div class="card-title">📊 Statistiques</div>
+              <div id="memory-stats-content"><div class="text-muted text-sm">Chargement...</div></div>
+            </div>
+            <div class="card">
+              <div class="card-title">🔍 Recherche RAG</div>
+              <div style="display:flex;gap:8px;margin-bottom:12px">
+                <input id="memory-search-input" class="form-input flex-1" placeholder="Rechercher dans la mémoire..."
+                       onkeydown="if(event.key==='Enter') searchMemoryChunks()">
+                <button class="btn btn-primary" onclick="searchMemoryChunks()">🔍</button>
+              </div>
+              <div id="memory-search-results" style="max-height:200px;overflow-y:auto"></div>
+            </div>
+          </div>
+
+          <div class="card mb-16" style="margin-top:20px">
+            <div class="card-title">➕ Ajouter du contexte</div>
+            <div class="form-group">
+              <textarea id="memory-content" class="form-input" rows="3"
+                placeholder="Contenu à mémoriser (les secrets sont automatiquement filtrés avant stockage)..."></textarea>
+            </div>
+            <div style="display:flex;gap:10px;align-items:center">
+              <select id="memory-source" class="form-select" style="width:180px">
+                <option value="manual">Manuel</option>
+                <option value="documentation">Documentation</option>
+                <option value="context">Contexte</option>
+              </select>
+              <button class="btn btn-primary" onclick="addMemoryChunkUI()">➕ Ajouter</button>
+            </div>
+          </div>
+
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+            <div class="card-title" style="margin:0">📚 Chunks mémorisés</div>
+            <div id="memory-count" class="text-muted text-sm"></div>
+          </div>
+          <div id="memory-chunks-list"></div>
+        </div>
+      </div>
+
+      <!-- ╔═══════════════════════════════════════╗ -->
+      <!-- ║  VIEW: METRICS                        ║ -->
+      <!-- ╚═══════════════════════════════════════╝ -->
+      <div id="view-metrics" class="view" style="display:none">
+        <div class="page-header">
+          <div style="display:flex;align-items:center;justify-content:space-between">
+            <div>
+              <h1>📊 Métriques</h1>
+              <p>Performance des agents et statistiques d'utilisation</p>
+            </div>
+            <button class="btn btn-secondary btn-sm" onclick="loadMetricsView()">🔄 Rafraîchir</button>
+          </div>
+        </div>
+        <div class="page-body">
+          <div class="stats-row">
+            <div class="stat-card blue">
+              <div class="stat-value" id="metric-total">–</div>
+              <div class="stat-label">Exécutions</div>
+            </div>
+            <div class="stat-card green">
+              <div class="stat-value" id="metric-completed">–</div>
+              <div class="stat-label">Réussies</div>
+            </div>
+            <div class="stat-card yellow">
+              <div class="stat-value" id="metric-errors">–</div>
+              <div class="stat-label">Avec erreurs</div>
+            </div>
+            <div class="stat-card accent">
+              <div class="stat-value" id="metric-success-rate">–</div>
+              <div class="stat-label">Taux de réussite</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-value" id="metric-avg-duration">–</div>
+              <div class="stat-label">Durée moyenne</div>
+            </div>
+          </div>
+
+          <div class="card" style="margin-top:20px">
+            <div class="card-title">🤖 Performance par agent</div>
+            <div id="metrics-agents-table">
+              <div class="text-muted text-sm" style="padding:20px">Chargement...</div>
+            </div>
+          </div>
         </div>
       </div>
 
