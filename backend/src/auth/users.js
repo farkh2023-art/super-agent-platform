@@ -80,4 +80,23 @@ function count() {
   return readUsers().length;
 }
 
-module.exports = { createUser, authenticate, findById, listUsers, count, hashPassword, verifyPassword };
+function updateUser(id, patch = {}) {
+  const users = readUsers();
+  const idx = users.findIndex((u) => u.id === id);
+  if (idx === -1) throw Object.assign(new Error('User not found'), { code: 'NOT_FOUND' });
+  if (patch.role !== undefined) users[idx].role = ['admin', 'user'].includes(patch.role) ? patch.role : users[idx].role;
+  if (patch.disabled !== undefined) users[idx].disabled = Boolean(patch.disabled);
+  if (patch.workspaceId !== undefined) users[idx].workspaceId = patch.workspaceId;
+  writeUsers(users);
+  return safeUser(users[idx]);
+}
+
+function deleteUser(id) {
+  const users = readUsers();
+  const idx = users.findIndex((u) => u.id === id);
+  if (idx === -1) throw Object.assign(new Error('User not found'), { code: 'NOT_FOUND' });
+  users.splice(idx, 1);
+  writeUsers(users);
+}
+
+module.exports = { createUser, authenticate, findById, listUsers, count, updateUser, deleteUser, hashPassword, verifyPassword };

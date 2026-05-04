@@ -75,6 +75,8 @@ function updateAuthUI() {
     }
     if (navWs)    navWs.style.display = 'flex';
     if (navAudit) navAudit.style.display = user.role === 'admin' ? 'flex' : 'none';
+    const adminUsersSection = qs('#admin-users-section');
+    if (adminUsersSection) adminUsersSection.style.display = user.role === 'admin' ? 'block' : 'none';
     if (badge && wsName) {
       if (workspace) {
         badge.style.display = 'block';
@@ -107,11 +109,13 @@ async function initAuth() {
         const { user } = await API.me();
         state.auth.user = user;
         updateAuthUI();
+        startSessionTimer();
         hideLoginOverlay();
         navigate('dashboard');
         return;
       } catch {
         window.AuthToken.clear();
+        window.AuthToken.clearRefresh();
       }
     }
 
@@ -119,6 +123,61 @@ async function initAuth() {
   } catch {
     navigate('dashboard');
   }
+}
+
+// ── Session timer ────────────────────────────────────────────────────────────
+
+let _sessionTimerInterval = null;
+
+function decodeJWTPayload(token) {
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 3) return null;
+    return JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
+  } catch { return null; }
+}
+
+function startSessionTimer() {
+  clearSessionTimer();
+  _sessionTimerInterval = setInterval(() => {
+    const token = window.AuthToken.get();
+    if (!token) { clearSessionTimer(); return; }
+    const payload = decodeJWTPayload(token);
+    if (!payload || !payload.exp) { clearSessionTimer(); return; }
+    const remaining = payload.exp - Math.floor(Date.now() / 1000);
+    const timerEl = qs('#session-timer');
+    if (timerEl) {
+      if (remaining <= 0) {
+        timerEl.textContent = 'Expirée';
+        timerEl.style.color = 'var(--red)';
+      } else {
+        const m = Math.floor(remaining / 60);
+        const s = remaining % 60;
+        timerEl.textContent = `${m}:${String(s).padStart(2, '0')}`;
+        timerEl.style.color = remaining < 120 ? 'var(--yellow)' : 'var(--text3)';
+      }
+    }
+    // Auto-refresh at ≤ 60s remaining
+    if (remaining > 0 && remaining <= 60) {
+      doSilentRefresh();
+    }
+  }, 1000);
+}
+
+function clearSessionTimer() {
+  if (_sessionTimerInterval) { clearInterval(_sessionTimerInterval); _sessionTimerInterval = null; }
+  const timerEl = qs('#session-timer');
+  if (timerEl) timerEl.textContent = '';
+}
+
+async function doSilentRefresh() {
+  const rt = window.AuthToken.getRefresh();
+  if (!rt) return;
+  try {
+    const data = await API.refresh(rt);
+    window.AuthToken.set(data.token);
+    if (data.refreshToken) window.AuthToken.setRefresh(data.refreshToken);
+  } catch { /* will get 401 on next request, which triggers login overlay */ }
 }
 
 async function doLogin() {
@@ -138,8 +197,10 @@ async function doLogin() {
   try {
     const data = await API.login(username, password);
     window.AuthToken.set(data.token);
+    if (data.refreshToken) window.AuthToken.setRefresh(data.refreshToken);
     state.auth.user = data.user;
     updateAuthUI();
+    startSessionTimer();
     hideLoginOverlay();
     if (qs('#login-password')) qs('#login-password').value = '';
     navigate('dashboard');
@@ -152,8 +213,11 @@ async function doLogin() {
 }
 
 async function doLogout() {
-  try { await API.logout(); } catch { /* ignore */ }
+  const rt = window.AuthToken.getRefresh();
+  try { await API.logout(rt); } catch { /* ignore */ }
+  clearSessionTimer();
   window.AuthToken.clear();
+  window.AuthToken.clearRefresh();
   state.auth = { mode: state.auth.mode, user: null, workspace: null };
   updateAuthUI();
   showLoginOverlay();
@@ -168,6 +232,9 @@ async function loadWorkspacesView() {
 
   const createCard = qs('#workspace-create-card');
   if (createCard) createCard.style.display = state.auth.user?.role === 'admin' ? 'block' : 'none';
+
+  // Admin users section
+  if (state.auth.user?.role === 'admin') loadUsersManagementUI();
 
   try {
     const { workspaces } = await API.getWorkspaces();
@@ -220,14 +287,90 @@ async function createWorkspaceUI() {
   }
 }
 
+// ── Admin Users Management ───────────────────────────────────────────────────
+
+async function loadUsersManagementUI() {
+  const container = qs('#users-management-list');
+  if (!container) return;
+  container.innerHTML = '<div class="text-muted text-sm">Chargement...</div>';
+  try {
+    const { users } = await API.getAuthUsers();
+    if (!users || !users.length) {
+      container.innerHTML = '<div class="text-muted text-sm">Aucun utilisateur.</div>';
+      return;
+    }
+    const me = state.auth.user;
+    container.innerHTML = users.map((u) => `
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 14px;background:var(--bg3);border-radius:8px;margin-bottom:8px">
+        <div style="min-width:0">
+          <div style="font-weight:600">${escHtml(u.username)}</div>
+          <div style="display:flex;gap:6px;margin-top:3px;align-items:center">
+            <span class="badge ${u.role === 'admin' ? 'badge-completed' : 'badge-pending'}">${u.role}</span>
+            ${u.disabled ? '<span class="badge badge-error">Désactivé</span>' : ''}
+          </div>
+        </div>
+        ${me && me.id !== u.id ? `
+        <div style="display:flex;gap:6px;flex-shrink:0">
+          <button class="btn btn-sm btn-secondary" onclick="toggleUserRoleUI('${escHtml(u.id)}','${u.role}')">
+            ${u.role === 'admin' ? 'Rétrograder' : 'Promouvoir'}
+          </button>
+          <button class="btn btn-sm ${u.disabled ? 'btn-secondary' : 'btn-danger'}"
+                  onclick="toggleUserDisabledUI('${escHtml(u.id)}',${!!u.disabled})">
+            ${u.disabled ? 'Activer' : 'Désactiver'}
+          </button>
+        </div>
+        ` : '<span style="font-size:11px;color:var(--text3)">(vous)</span>'}
+      </div>
+    `).join('');
+  } catch (err) {
+    container.innerHTML = `<div class="text-red">Erreur: ${escHtml(err.message)}</div>`;
+  }
+}
+
+async function toggleUserRoleUI(userId, currentRole) {
+  const newRole = currentRole === 'admin' ? 'user' : 'admin';
+  try {
+    await API.updateUser(userId, { role: newRole });
+    showToast(`Rôle mis à jour → ${newRole}`, 'success');
+    loadUsersManagementUI();
+  } catch (err) {
+    showToast(`Erreur: ${err.message}`, 'error');
+  }
+}
+
+async function toggleUserDisabledUI(userId, isDisabled) {
+  try {
+    await API.updateUser(userId, { disabled: !isDisabled });
+    showToast(`Utilisateur ${!isDisabled ? 'désactivé' : 'réactivé'}`, 'success');
+    loadUsersManagementUI();
+  } catch (err) {
+    showToast(`Erreur: ${err.message}`, 'error');
+  }
+}
+
 // ── Audit Log View ───────────────────────────────────────────────────────────
+
+function clearAuditFilters() {
+  ['#audit-filter-username', '#audit-filter-method', '#audit-filter-from', '#audit-filter-to']
+    .forEach((sel) => { const el = qs(sel); if (el) el.value = ''; });
+  loadAuditLogView();
+}
 
 async function loadAuditLogView() {
   const container = qs('#audit-log-list');
   if (!container) return;
   container.innerHTML = '<div class="text-muted text-sm">Chargement...</div>';
   try {
-    const { entries } = await API.getAuditLog();
+    const params = {};
+    const username = qs('#audit-filter-username')?.value?.trim();
+    const method   = qs('#audit-filter-method')?.value;
+    const from     = qs('#audit-filter-from')?.value;
+    const to       = qs('#audit-filter-to')?.value;
+    if (username) params.username = username;
+    if (method)   params.method   = method;
+    if (from)     params.from     = from;
+    if (to)       params.to       = to;
+    const { entries } = await API.getAuditLog(params);
     if (!entries || !entries.length) {
       container.innerHTML = '<div class="empty-state"><div class="empty-icon">📋</div><p>Aucune entrée dans l\'audit log.</p></div>';
       return;

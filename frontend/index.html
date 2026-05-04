@@ -115,6 +115,7 @@
             <div style="min-width:0">
               <div style="font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" id="auth-username-label">–</div>
               <div style="font-size:11px;color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis" id="auth-workspace-label"></div>
+              <div style="font-size:11px;color:var(--text3);margin-top:1px">Session: <span id="session-timer"></span></div>
             </div>
             <button class="btn btn-sm" onclick="doLogout()" style="font-size:11px;padding:3px 8px;flex-shrink:0">Déco.</button>
           </div>
@@ -890,6 +891,17 @@ erreur Jest async</textarea>
           <div id="workspaces-list">
             <div class="text-muted text-sm">Chargement...</div>
           </div>
+
+          <!-- Admin — user management (admin only, shown by JS) -->
+          <div id="admin-users-section" style="display:none;margin-top:28px">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+              <div class="card-title" style="margin:0">👥 Gestion des utilisateurs</div>
+              <button class="btn btn-secondary btn-sm" onclick="loadUsersManagementUI()">🔄 Rafraîchir</button>
+            </div>
+            <div id="users-management-list">
+              <div class="text-muted text-sm">Chargement...</div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -907,6 +919,36 @@ erreur Jest async</textarea>
           </div>
         </div>
         <div class="page-body">
+          <!-- Filters -->
+          <div class="card mb-16" style="padding:14px 16px">
+            <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
+              <div>
+                <div class="form-label" style="font-size:11px;margin-bottom:4px">Utilisateur</div>
+                <input id="audit-filter-username" class="form-input" placeholder="Nom..." style="width:140px">
+              </div>
+              <div>
+                <div class="form-label" style="font-size:11px;margin-bottom:4px">Méthode</div>
+                <select id="audit-filter-method" class="form-select" style="width:120px">
+                  <option value="">Toutes</option>
+                  <option value="POST">POST</option>
+                  <option value="PUT">PUT</option>
+                  <option value="PATCH">PATCH</option>
+                  <option value="DELETE">DELETE</option>
+                </select>
+              </div>
+              <div>
+                <div class="form-label" style="font-size:11px;margin-bottom:4px">Depuis</div>
+                <input id="audit-filter-from" class="form-input" type="date" style="width:148px">
+              </div>
+              <div>
+                <div class="form-label" style="font-size:11px;margin-bottom:4px">Jusqu'à</div>
+                <input id="audit-filter-to" class="form-input" type="date" style="width:148px">
+              </div>
+              <button class="btn btn-primary btn-sm" onclick="loadAuditLogView()">Filtrer</button>
+              <button class="btn btn-secondary btn-sm" onclick="clearAuditFilters()">Réinitialiser</button>
+            </div>
+          </div>
+          <!-- Results -->
           <div class="card">
             <div id="audit-log-list">
               <div class="text-muted text-sm">Chargement...</div>

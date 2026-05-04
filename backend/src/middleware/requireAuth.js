@@ -3,7 +3,7 @@
 const jwt = require('../auth/jwt');
 const { getAuthMode } = require('../auth/authConfig');
 
-const PUBLIC_PATHS = ['/auth/login', '/auth/mode', '/health', '/health/detailed'];
+const PUBLIC_PATHS = ['/auth/login', '/auth/mode', '/auth/refresh', '/health', '/health/detailed'];
 
 function requireAuth(req, res, next) {
   if (getAuthMode() !== 'multi') return next();
@@ -18,6 +18,12 @@ function requireAuth(req, res, next) {
 
   try {
     const payload = jwt.verify(token);
+    // Check if user account is disabled
+    const users = require('../auth/users');
+    const liveUser = users.findById(payload.id || payload.userId);
+    if (liveUser && liveUser.disabled) {
+      return res.status(401).json({ error: 'Account disabled' });
+    }
     req.user = payload;
     req.workspaceId = payload.workspaceId || null;
     next();

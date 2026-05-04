@@ -59,7 +59,11 @@ function listAuditLog(options = {}) {
   try {
     const p = logPath();
     if (!fs.existsSync(p)) return [];
-    const log = JSON.parse(fs.readFileSync(p, 'utf8'));
+    let log = JSON.parse(fs.readFileSync(p, 'utf8'));
+    if (options.username) log = log.filter((e) => e.username === options.username);
+    if (options.method)   log = log.filter((e) => e.method === String(options.method).toUpperCase());
+    if (options.from)     log = log.filter((e) => new Date(e.createdAt) >= new Date(options.from));
+    if (options.to)       log = log.filter((e) => new Date(e.createdAt) <= new Date(options.to + 'T23:59:59Z'));
     const max = Math.max(1, Math.min(parseInt(options.limit || 100, 10), 500));
     return log.slice(-max).reverse();
   } catch { return []; }

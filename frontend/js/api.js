@@ -3,23 +3,60 @@ const API_BASE = window.location.origin + '/api';
 
 // ── Token management (never logged) ─────────────────────────────────────────
 const AuthToken = {
-  get:   ()  => localStorage.getItem('sap_jwt') || '',
-  set:   (t) => localStorage.setItem('sap_jwt', t),
-  clear: ()  => localStorage.removeItem('sap_jwt'),
+  get:          ()  => localStorage.getItem('sap_jwt') || '',
+  set:          (t) => localStorage.setItem('sap_jwt', t),
+  clear:        ()  => localStorage.removeItem('sap_jwt'),
+  getRefresh:   ()  => localStorage.getItem('sap_refresh') || '',
+  setRefresh:   (t) => localStorage.setItem('sap_refresh', t),
+  clearRefresh: ()  => localStorage.removeItem('sap_refresh'),
 };
 window.AuthToken = AuthToken;
+
+// Prevent concurrent silent refreshes
+let _refreshing = false;
 
 async function apiFetch(path, options = {}) {
   const token = AuthToken.get();
   const headers = { 'Content-Type': 'application/json', ...options.headers };
   if (token) headers['Authorization'] = `Bearer ${token}`;
+
   const res = await fetch(`${API_BASE}${path}`, { ...options, headers });
+
   if (res.status === 401) {
+    // Try silent refresh once
+    const rt = AuthToken.getRefresh();
+    if (rt && !_refreshing) {
+      _refreshing = true;
+      try {
+        const rRes = await fetch(`${API_BASE}/auth/refresh`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ refreshToken: rt }),
+        });
+        if (rRes.ok) {
+          const rData = await rRes.json();
+          AuthToken.set(rData.token);
+          if (rData.refreshToken) AuthToken.setRefresh(rData.refreshToken);
+          // Retry original request with new token
+          const retryHeaders = { 'Content-Type': 'application/json', ...options.headers, 'Authorization': `Bearer ${rData.token}` };
+          const retryRes = await fetch(`${API_BASE}${path}`, { ...options, headers: retryHeaders });
+          const retryData = await retryRes.json();
+          if (!retryRes.ok) throw new Error(retryData.error || `HTTP ${retryRes.status}`);
+          return retryData;
+        }
+      } catch (e) {
+        if (e.message && !e.message.includes('fetch')) throw e;
+      } finally {
+        _refreshing = false;
+      }
+    }
     AuthToken.clear();
+    AuthToken.clearRefresh();
     window.dispatchEvent(new CustomEvent('auth:unauthorized'));
     const data = await res.json().catch(() => ({}));
     throw new Error(data.error || 'Non autorisé');
   }
+
   const data = await res.json();
   if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
   return data;
@@ -148,14 +185,20 @@ const API = {
   getMetrics: () => apiFetch('/metrics'),
   getAgentMetrics: () => apiFetch('/metrics/agents'),
 
-  // ── Auth (Phase 6A/B) ────────────────────────────────────────────────────
+  // ── Auth (Phase 6A/B/C) ──────────────────────────────────────────────────
   getAuthMode: () => apiFetch('/auth/mode'),
   login: (username, password) => apiFetch('/auth/login', { method: 'POST', body: JSON.stringify({ username, password }) }),
+  refresh: (refreshToken) => apiFetch('/auth/refresh', { method: 'POST', body: JSON.stringify({ refreshToken }) }),
   me: () => apiFetch('/auth/me'),
-  logout: () => apiFetch('/auth/logout', { method: 'POST', body: JSON.stringify({}) }),
-  getAuditLog: () => apiFetch('/auth/audit-log'),
+  logout: (refreshToken) => apiFetch('/auth/logout', { method: 'POST', body: JSON.stringify({ refreshToken }) }),
+  getAuditLog: (params = {}) => {
+    const qs = new URLSearchParams(params).toString();
+    return apiFetch(`/auth/audit-log${qs ? '?' + qs : ''}`);
+  },
   getAuthUsers: () => apiFetch('/auth/users'),
   registerUser: (body) => apiFetch('/auth/register', { method: 'POST', body: JSON.stringify(body) }),
+  updateUser: (id, body) => apiFetch(`/auth/users/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
+  deleteUser: (id) => apiFetch(`/auth/users/${id}`, { method: 'DELETE' }),
 
   // ── Workspaces (Phase 6A/B) ──────────────────────────────────────────────
   getWorkspaces: () => apiFetch('/workspaces'),
