@@ -8,6 +8,23 @@ const limiter = require('../engine/concurrency');
 
 const router = express.Router();
 
+function shouldWaitForExecution(req) {
+  return process.env.NODE_ENV === 'test' || req.query.wait === 'true' || req.body?.wait === true;
+}
+
+function logBackgroundError(err) {
+  if (process.env.NODE_ENV !== 'test') console.error(err);
+}
+
+async function launchExecution(req, executionId) {
+  const promise = limiter.run(() => runExecution(executionId));
+  if (shouldWaitForExecution(req)) {
+    await promise;
+  } else {
+    promise.catch(logBackgroundError);
+  }
+}
+
 // POST /api/executions – create and launch execution from a plan
 router.post('/', async (req, res) => {
   const { task, agentIds, planText, useMemory } = req.body;
@@ -21,7 +38,7 @@ router.post('/', async (req, res) => {
       plan = await generatePlan(task, agentIds || []);
     }
     const execution = createExecution(plan, { useMemory });
-    limiter.run(() => runExecution(execution.id)).catch(console.error);
+    await launchExecution(req, execution.id);
     res.status(201).json(execution);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -35,7 +52,7 @@ router.post('/:id/run', async (req, res) => {
   if (execution.status !== 'pending') {
     return res.status(400).json({ error: `Exécution déjà en statut: ${execution.status}` });
   }
-  runExecution(execution.id).catch(console.error);
+  await launchExecution(req, execution.id);
   res.json({ message: 'Exécution lancée', executionId: execution.id });
 });
 
