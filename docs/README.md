@@ -2,7 +2,7 @@
 
 Plateforme web locale pour gérer et orchestrer 10 agents IA spécialisés.
 
-[![Tests](https://img.shields.io/badge/tests-36%2F36%20✅-brightgreen)]()
+[![Tests](https://img.shields.io/badge/tests-42%2F42%20✅-brightgreen)]()
 [![Mode Mock](https://img.shields.io/badge/mode-mock%20(sans%20clé%20API)-yellow)]()
 [![Node.js](https://img.shields.io/badge/node-%3E%3D22-blue)]()
 
@@ -47,11 +47,16 @@ npm start        # ou: node src/server.js
 | Exécution multi-agents séquentielle | ✅ |
 | Logs temps réel (WebSocket) | ✅ |
 | Artefacts téléchargeables (Markdown) | ✅ |
+| Export PDF des artefacts | ✅ |
+| Diagrammes Mermaid.js dans l'Artifact Viewer | ✅ |
+| Logs structurés JSONL (`data/logs/YYYY-MM-DD.jsonl`) | ✅ |
+| Dashboard stats (`GET /api/dashboard/stats`) | ✅ |
 | Workflows multi-étapes | ✅ |
+| Exécution parallèle de steps workflow | ✅ |
 | Support Claude / OpenAI / Ollama | ✅ |
 | Interface web SPA complète | ✅ |
 | Dépôt git initialisé + `.gitignore` | ✅ |
-| Tests backend (36/36) | ✅ |
+| Tests backend (42/42) | ✅ |
 
 ---
 
@@ -67,12 +72,13 @@ super-agent-platform/
 ├── backend/
 │   ├── src/
 │   │   ├── agents/registry.js    # 10 définitions d'agents
-│   │   ├── engine/               # Planificateur + Exécuteur + Workflows
+│   │   ├── engine/               # Planificateur + Exécuteur + Workflows (parallèle)
+│   │   ├── logging/jsonl.js      # Logs structurés JSONL
 │   │   ├── providers/            # Claude, OpenAI, Ollama, Mock
-│   │   ├── routes/               # API REST (agents, tasks, executions…)
+│   │   ├── routes/               # API REST (agents, tasks, executions, dashboard…)
 │   │   └── server.js             # Express + WebSocket
-│   ├── tests/                    # 36 tests Jest (3 suites)
-│   └── data/                     # Stockage JSON (auto-créé, git-ignoré)
+│   ├── tests/                    # 42 tests Jest (4 suites)
+│   └── data/                     # Stockage JSON + logs JSONL (auto-créé, git-ignoré)
 ├── frontend/
 │   ├── index.html                # SPA (7 vues : dashboard, agents, execute…)
 │   ├── css/styles.css            # Thème sombre
@@ -143,6 +149,7 @@ Suites :
 - `tests/agents.test.js` — Registry des 10 agents (10 tests)
 - `tests/planner.test.js` — Planificateur automatique (8 tests)
 - `tests/api.test.js` — API REST end-to-end (18 tests)
+- `tests/dashboard.test.js` — Dashboard stats endpoint (6 tests)
 
 ---
 

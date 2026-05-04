@@ -51,6 +51,7 @@ app.use('/api/executions', require('./routes/executions'));
 app.use('/api/workflows', require('./routes/workflows'));
 app.use('/api/artifacts', require('./routes/artifacts'));
 app.use('/api/settings', require('./routes/settings'));
+app.use('/api/dashboard', require('./routes/dashboard'));
 
 // Health check
 app.get('/api/health', (req, res) => {

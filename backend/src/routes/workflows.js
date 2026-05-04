@@ -24,6 +24,7 @@ router.post('/', (req, res) => {
       name: s.name || `Étape ${i + 1}`,
       task: s.task || '',
       agentIds: s.agentIds || [],
+      parallel: s.parallel === true,
     })),
     createdAt: new Date().toISOString(),
   };

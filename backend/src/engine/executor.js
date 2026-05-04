@@ -4,6 +4,7 @@ const { v4: uuid } = require('uuid');
 const { getAgentById } = require('../agents/registry');
 const { callAI } = require('../providers/factory');
 const storage = require('../storage');
+const { writeLog } = require('../logging/jsonl');
 
 // broadcast function set by server.js
 let broadcastFn = null;
@@ -31,6 +32,7 @@ function appendLog(executionId, level, message, extra = {}) {
     logs.push(log);
     storage.update('executions', executionId, { logs });
   }
+  writeLog({ ts: log.timestamp, level, executionId, message, ...extra });
   emit(executionId, 'log', log);
   return log;
 }

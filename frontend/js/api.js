@@ -53,6 +53,9 @@ const API = {
   updateSettings: (body) => apiFetch('/settings', { method: 'PUT', body: JSON.stringify(body) }),
   getStatus: () => apiFetch('/settings/status'),
 
+  // Dashboard
+  getDashboardStats: () => apiFetch('/dashboard/stats'),
+
   // Health
   health: () => apiFetch('/health'),
 };

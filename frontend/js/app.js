@@ -37,24 +37,16 @@ function navigate(view) {
 // ── Dashboard ────────────────────────────────────────────────────────────────
 async function loadDashboard() {
   try {
-    const [execData, artData, wfData, agData] = await Promise.all([
+    const [stats, execData] = await Promise.all([
+      API.getDashboardStats(),
       API.getExecutions(),
-      API.getArtifacts(),
-      API.getWorkflows(),
-      API.getAgents(),
     ]);
     state.executions = execData.executions;
-    state.artifacts = artData.artifacts;
-    state.workflows = wfData.workflows;
-    state.agents = agData.agents;
 
-    const running = state.executions.filter((e) => e.status === 'running').length;
-    const completed = state.executions.filter((e) => e.status === 'completed' || e.status === 'completed_with_errors').length;
-
-    qs('#stat-agents').textContent = state.agents.length;
-    qs('#stat-executions').textContent = state.executions.length;
-    qs('#stat-running').textContent = running;
-    qs('#stat-artifacts').textContent = state.artifacts.length;
+    qs('#stat-agents').textContent = stats.agents.total;
+    qs('#stat-executions').textContent = stats.executions.total;
+    qs('#stat-running').textContent = stats.executions.running;
+    qs('#stat-artifacts').textContent = stats.artifacts.total;
 
     renderRecentExecutions();
   } catch (err) {
@@ -421,7 +413,8 @@ async function loadArtifactsView() {
         <div class="artifact-preview">${escHtml(a.content.substring(0, 150))}</div>
         <div class="artifact-actions">
           <button class="btn btn-sm btn-secondary" onclick="showArtifactModal('${a.id}')">👁 Voir</button>
-          <a href="/api/artifacts/${a.id}/download" class="btn btn-sm btn-secondary" download>⬇ DL</a>
+          <a href="/api/artifacts/${a.id}/download" class="btn btn-sm btn-secondary" download>⬇ MD</a>
+          <a href="/api/artifacts/${a.id}/export-pdf" class="btn btn-sm btn-secondary" download>📄 PDF</a>
           <button class="btn btn-sm btn-danger" onclick="deleteArtifact('${a.id}')">🗑</button>
         </div>
       </div>
@@ -442,9 +435,11 @@ async function showArtifactModal(id) {
       <div class="text-sm text-muted mb-12">${formatDate(a.createdAt)}</div>
       <div class="markdown-content">${renderMarkdown(a.content)}</div>
       <div class="btn-group mt-12">
-        <a href="/api/artifacts/${a.id}/download" class="btn btn-primary" download>⬇ Télécharger</a>
+        <a href="/api/artifacts/${a.id}/download" class="btn btn-primary" download>⬇ Markdown</a>
+        <a href="/api/artifacts/${a.id}/export-pdf" class="btn btn-secondary" download>📄 PDF</a>
       </div>
     `);
+    renderMermaidIn('.modal');
   } catch (err) {
     showToast(`Erreur: ${err.message}`, 'error');
   }
@@ -511,6 +506,11 @@ function renderWorkflowSteps() {
         <div class="step-number-badge">${i + 1}</div>
         <input class="form-input flex-1" value="${escHtml(s.name)}" placeholder="Nom de l'étape"
                oninput="workflowSteps[${i}].name=this.value">
+        <label style="display:flex;align-items:center;gap:4px;font-size:12px;color:var(--text2);white-space:nowrap;cursor:pointer">
+          <input type="checkbox" ${s.parallel ? 'checked' : ''}
+                 onchange="workflowSteps[${i}].parallel=this.checked">
+          ⚡ Parallèle
+        </label>
         <button class="remove-step-btn" onclick="removeWorkflowStep(${i})">×</button>
       </div>
       <div class="form-group">
@@ -676,6 +676,7 @@ function formatDate(iso) {
 function renderMarkdown(text) {
   if (!text) return '';
   return text
+    .replace(/```mermaid\n([\s\S]*?)```/g, (_, diagram) => `<div class="mermaid">${diagram}</div>`)
     .replace(/```(\w*)\n([\s\S]*?)```/g, (_, lang, code) => `<pre><code class="language-${lang}">${escHtml(code)}</code></pre>`)
     .replace(/`([^`]+)`/g, '<code>$1</code>')
     .replace(/^### (.+)$/gm, '<h3>$1</h3>')
@@ -690,6 +691,14 @@ function renderMarkdown(text) {
     .replace(/\n{2,}/g, '</p><p>')
     .replace(/^(?!<[h|p|u|o|l|b|c|t|p])/gm, '<p>')
     .replace(/<p>(<[h|u|p|o|t|c|b|l])/g, '$1');
+}
+
+function renderMermaidIn(selector) {
+  if (typeof mermaid === 'undefined') return;
+  const container = typeof selector === 'string' ? document.querySelector(selector) : selector;
+  if (!container) return;
+  const nodes = container.querySelectorAll('.mermaid');
+  if (nodes.length > 0) mermaid.run({ nodes: Array.from(nodes) });
 }
 
 let toastTimer = null;

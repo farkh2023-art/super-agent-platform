@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python3 *)",
+      "Bash(node src/server.js)",
+      "Bash(curl -s http://localhost:3001/api/health)",
+      "Bash(curl -s http://localhost:3001/api/dashboard/stats)",
+      "Bash(taskkill /F /FI \"WINDOWTITLE eq node*\" /IM node.exe)"
+    ]
+  }
+}
