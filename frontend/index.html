@@ -634,6 +634,42 @@ erreur Jest async</textarea>
             </div>
           </div>
 
+          <div class="memory-eval-layout">
+            <div class="card">
+              <div class="card-title">RAG Evaluation</div>
+              <div id="memory-eval-queries" class="memory-eval-list">
+                <div class="text-muted text-sm">Chargement...</div>
+              </div>
+              <div class="memory-eval-form">
+                <input id="memory-eval-query" class="form-input" placeholder="Requete d'evaluation">
+                <input id="memory-eval-keywords" class="form-input" placeholder="Mots-cles attendus, separes par virgules">
+                <input id="memory-eval-types" class="form-input" placeholder="Types attendus optionnels">
+                <textarea id="memory-eval-description" class="form-input" rows="2" placeholder="Description"></textarea>
+                <button class="btn btn-primary btn-sm" onclick="addMemoryEvalQueryUI()">Ajouter</button>
+              </div>
+              <div class="memory-eval-actions">
+                <select id="memory-eval-topk" class="form-select" style="width:110px">
+                  <option value="3">top 3</option>
+                  <option value="5" selected>top 5</option>
+                  <option value="10">top 10</option>
+                </select>
+                <button class="btn btn-secondary btn-sm" onclick="runMemoryEvaluationUI()">Run evaluation</button>
+                <button class="btn btn-secondary btn-sm" onclick="exportMemoryEvaluationReportUI()">Export Markdown</button>
+              </div>
+              <div id="memory-eval-results" class="memory-eval-results"></div>
+            </div>
+
+            <div class="card">
+              <div class="card-title">Embedding Integrity</div>
+              <div id="memory-integrity-content"><div class="text-muted text-sm">Chargement...</div></div>
+              <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
+                <button class="btn btn-secondary btn-sm" onclick="loadEmbeddingIntegrityUI()">Rafraichir</button>
+                <button class="btn btn-danger btn-sm" onclick="cleanupEmbeddingsUI()">Cleanup</button>
+              </div>
+              <div id="memory-integrity-message" class="text-sm text-muted mt-12"></div>
+            </div>
+          </div>
+
           <div class="card mb-16" style="margin-top:20px">
             <div class="card-title">➕ Ajouter du contexte</div>
             <div class="form-group">

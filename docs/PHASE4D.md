@@ -47,3 +47,7 @@ Le contenu est filtre par `sanitizeContent()` avant stockage et avant embedding.
 - Pas de base vectorielle externe : scan JSON local, adapte au volume local.
 - Pas de migration React ni de migration stockage.
 - Vector/hybrid necessitent `MEMORY_EMBEDDINGS=true`, Ollama lance, et le modele present.
+
+## Suite Phase 4E
+
+La Phase 4E ajoute l'evaluation qualitative du RAG (`precision@K`, `recall@K`, `nDCG@K`), l'export Markdown des rapports et le nettoyage des embeddings orphelins ou stale. Voir [PHASE4E.md](PHASE4E.md).

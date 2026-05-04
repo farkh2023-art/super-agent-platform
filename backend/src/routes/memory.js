@@ -5,6 +5,7 @@ const storage = require('../storage');
 const { addChunk, search, retrieve, listChunks, removeChunk, clearMemory, stats, reindexEmbeddings } = require('../memory/retriever');
 const { getEmbeddingStatus } = require('../memory/embeddings');
 const embeddingStore = require('../memory/embeddingStore');
+const evaluator = require('../memory/evaluator');
 
 const router = express.Router();
 
@@ -66,6 +67,92 @@ router.post('/embeddings/reindex/:id', async (req, res) => {
 router.delete('/embeddings', (req, res) => {
   embeddingStore.clearEmbeddings();
   res.json({ message: 'Embeddings effaces' });
+});
+
+router.get('/embeddings/integrity', (req, res) => {
+  const strict = String(req.query.strict || '').toLowerCase() === 'true';
+  res.json(embeddingStore.getEmbeddingIntegrityStatus({ strict }));
+});
+
+router.post('/embeddings/cleanup', (req, res) => {
+  const strict = req.body?.strict === true;
+  const result = embeddingStore.cleanupOrphanEmbeddings({ strict });
+  res.json({
+    totalEmbeddings: result.totalEmbeddings,
+    orphans: result.orphans,
+    stale: result.stale,
+    removed: result.removed,
+  });
+});
+
+router.get('/evaluation/queries', (req, res) => {
+  res.json(evaluator.readEvalQueries());
+});
+
+router.post('/evaluation/queries', (req, res) => {
+  try {
+    const data = evaluator.readEvalQueries();
+    const query = evaluator.sanitizeQueryConfig(req.body || {});
+    if (data.queries.some((q) => q.id === query.id)) {
+      query.id = `eval-${Date.now().toString(36)}`;
+    }
+    data.queries.push(query);
+    evaluator.writeEvalQueries(data.queries);
+    res.status(201).json(query);
+  } catch (err) {
+    res.status(err.statusCode || 400).json({ error: err.message });
+  }
+});
+
+router.put('/evaluation/queries/:id', (req, res) => {
+  try {
+    const data = evaluator.readEvalQueries();
+    const idx = data.queries.findIndex((q) => q.id === req.params.id);
+    if (idx === -1) return res.status(404).json({ error: 'Requete evaluation introuvable' });
+    const updated = evaluator.sanitizeQueryConfig({ ...data.queries[idx], ...(req.body || {}) }, req.params.id);
+    data.queries[idx] = updated;
+    evaluator.writeEvalQueries(data.queries);
+    res.json(updated);
+  } catch (err) {
+    res.status(err.statusCode || 400).json({ error: err.message });
+  }
+});
+
+router.delete('/evaluation/queries/:id', (req, res) => {
+  const data = evaluator.readEvalQueries();
+  const before = data.queries.length;
+  const queries = data.queries.filter((q) => q.id !== req.params.id);
+  if (queries.length === before) return res.status(404).json({ error: 'Requete evaluation introuvable' });
+  evaluator.writeEvalQueries(queries);
+  res.json({ message: 'Requete evaluation supprimee' });
+});
+
+router.post('/evaluation/run', async (req, res) => {
+  try {
+    const topK = req.body?.topK || 5;
+    const modes = req.body?.modes || ['keyword', 'vector', 'hybrid'];
+    const result = await evaluator.evaluateAll({ modes, topK });
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.get('/evaluation/latest', (req, res) => {
+  const latest = evaluator.getLatestEvaluation();
+  if (!latest) return res.json({ summary: null, results: [] });
+  res.json(latest);
+});
+
+router.post('/evaluation/export-report', async (req, res) => {
+  try {
+    let latest = evaluator.getLatestEvaluation();
+    if (!latest) latest = await evaluator.evaluateAll({ topK: req.body?.topK || 5, modes: req.body?.modes });
+    const report = evaluator.exportMarkdownReport(latest);
+    res.json({ filename: report.filename, path: report.path, markdown: report.markdown });
+  } catch (err) {
+    res.status(err.statusCode || 500).json({ error: err.message });
+  }
 });
 
 router.post('/benchmark', async (req, res) => {

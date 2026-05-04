@@ -931,13 +931,19 @@ async function loadMemoryView(resetPage = false) {
   if (resetPage) state.pages.memory.offset = 0;
   const { offset, limit } = state.pages.memory;
   try {
-    const [statsData, chunksData, embeddingStatus] = await Promise.all([
+    const [statsData, chunksData, embeddingStatus, evalQueries, integrity, latestEval] = await Promise.all([
       API.getMemoryStats(),
       API.getMemory({ limit, offset }),
       API.getMemoryEmbeddingStatus().catch(() => null),
+      API.getMemoryEvalQueries().catch(() => ({ queries: [] })),
+      API.getMemoryEmbeddingIntegrity().catch(() => null),
+      API.getMemoryLatestEvaluation().catch(() => null),
     ]);
     state.pages.memory.total = chunksData.total;
     renderMemoryStats({ ...statsData, embeddingStatus });
+    renderMemoryEvalQueries(evalQueries.queries || []);
+    renderEmbeddingIntegrity(integrity);
+    if (latestEval?.summary) renderMemoryEvaluationResults(latestEval);
     const countEl = qs('#memory-count');
     if (countEl) countEl.textContent = `${chunksData.total} chunk(s)`;
 
@@ -1076,6 +1082,148 @@ async function runMemoryBenchmark() {
     if (out) out.innerHTML = data.results.map((r) => `${escHtml(r.query)}: keyword ${r.keyword.latencyMs}ms / vector ${r.vector.latencyMs}ms / hybrid ${r.hybrid.latencyMs}ms (${escHtml(r.hybrid.modeUsed)})`).join('<br>');
   } catch (err) {
     if (out) out.innerHTML = `<span class="text-red">${escHtml(err.message)}</span>`;
+  }
+}
+
+function splitCsv(value) {
+  return String(value || '').split(',').map((v) => v.trim()).filter(Boolean);
+}
+
+function fmtMetric(value) {
+  return value == null ? 'n/a' : Number(value).toFixed(3);
+}
+
+function renderMemoryEvalQueries(queries) {
+  const container = qs('#memory-eval-queries');
+  if (!container) return;
+  if (!queries.length) {
+    container.innerHTML = '<div class="text-muted text-sm">Aucune requete.</div>';
+    return;
+  }
+  container.innerHTML = queries.map((q) => `
+    <div class="memory-eval-query">
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:600;font-size:12px">${escHtml(q.query)}</div>
+        <div class="text-sm text-muted">${escHtml((q.expectedKeywords || []).join(', '))}</div>
+      </div>
+      <button class="btn btn-sm btn-danger" onclick="deleteMemoryEvalQueryUI('${q.id}')">Supprimer</button>
+    </div>
+  `).join('');
+}
+
+async function addMemoryEvalQueryUI() {
+  const body = {
+    query: qs('#memory-eval-query')?.value,
+    expectedKeywords: splitCsv(qs('#memory-eval-keywords')?.value),
+    expectedTypes: splitCsv(qs('#memory-eval-types')?.value),
+    description: qs('#memory-eval-description')?.value,
+  };
+  if (!body.query || !body.expectedKeywords.length) {
+    showToast('Requete et mots-cles requis', 'error');
+    return;
+  }
+  try {
+    await API.createMemoryEvalQuery(body);
+    ['#memory-eval-query', '#memory-eval-keywords', '#memory-eval-types', '#memory-eval-description'].forEach((id) => { const el = qs(id); if (el) el.value = ''; });
+    showToast('Requete evaluation ajoutee', 'success');
+    loadMemoryView();
+  } catch (err) {
+    showToast(`Erreur: ${err.message}`, 'error');
+  }
+}
+
+async function deleteMemoryEvalQueryUI(id) {
+  try {
+    await API.deleteMemoryEvalQuery(id);
+    showToast('Requete evaluation supprimee', 'success');
+    loadMemoryView();
+  } catch (err) {
+    showToast(`Erreur: ${err.message}`, 'error');
+  }
+}
+
+async function runMemoryEvaluationUI() {
+  const out = qs('#memory-eval-results');
+  const topK = parseInt(qs('#memory-eval-topk')?.value || '5', 10);
+  if (out) out.innerHTML = '<div class="text-muted text-sm">Evaluation...</div>';
+  try {
+    const data = await API.runMemoryEvaluation({ topK, modes: ['keyword', 'vector', 'hybrid'] });
+    renderMemoryEvaluationResults(data);
+  } catch (err) {
+    if (out) out.innerHTML = `<div class="text-red">${escHtml(err.message)}</div>`;
+  }
+}
+
+function renderMemoryEvaluationResults(data) {
+  const out = qs('#memory-eval-results');
+  if (!out || !data?.summary) return;
+  const modes = data.summary.modes || ['keyword', 'vector', 'hybrid'];
+  out.innerHTML = `
+    <div class="memory-eval-summary">
+      <span class="badge badge-completed">best ${escHtml(data.summary.bestMode || 'keyword')}</span>
+      <span class="badge badge-pending">${data.summary.totalQueries || 0} requete(s)</span>
+      ${!data.summary.embeddingsAvailable ? '<span class="badge badge-error">fallback keyword</span>' : ''}
+    </div>
+    <table class="memory-eval-table">
+      <thead><tr><th>Mode</th><th>precision@K</th><th>recall@K</th><th>nDCG@K</th></tr></thead>
+      <tbody>
+        ${modes.map((mode) => `
+          <tr>
+            <td>${escHtml(mode)}</td>
+            <td>${fmtMetric(data.summary.averagePrecisionAtK?.[mode])}</td>
+            <td>${fmtMetric(data.summary.averageRecallAtK?.[mode])}</td>
+            <td>${fmtMetric(data.summary.averageNdcgAtK?.[mode])}</td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  `;
+}
+
+async function exportMemoryEvaluationReportUI() {
+  try {
+    const topK = parseInt(qs('#memory-eval-topk')?.value || '5', 10);
+    const res = await API.exportMemoryEvaluationReport({ topK, modes: ['keyword', 'vector', 'hybrid'] });
+    showToast(`Rapport exporte: ${res.filename}`, 'success');
+  } catch (err) {
+    showToast(`Erreur: ${err.message}`, 'error');
+  }
+}
+
+function renderEmbeddingIntegrity(data) {
+  const container = qs('#memory-integrity-content');
+  if (!container) return;
+  if (!data) {
+    container.innerHTML = '<div class="text-muted text-sm">Indisponible</div>';
+    return;
+  }
+  container.innerHTML = `
+    <div class="stats-row" style="margin-bottom:0">
+      <div class="stat-card"><div class="stat-value">${data.totalEmbeddings || 0}</div><div class="stat-label">Embeddings</div></div>
+      <div class="stat-card yellow"><div class="stat-value">${data.orphans || 0}</div><div class="stat-label">Orphelins</div></div>
+      <div class="stat-card blue"><div class="stat-value">${data.stale || 0}</div><div class="stat-label">Stale</div></div>
+    </div>
+    <div class="text-sm text-muted mt-12">Modele actif: ${escHtml(data.activeModel || '-')}</div>
+  `;
+}
+
+async function loadEmbeddingIntegrityUI() {
+  try {
+    renderEmbeddingIntegrity(await API.getMemoryEmbeddingIntegrity());
+  } catch (err) {
+    showToast(`Erreur: ${err.message}`, 'error');
+  }
+}
+
+async function cleanupEmbeddingsUI() {
+  try {
+    const res = await API.cleanupMemoryEmbeddings();
+    const msg = qs('#memory-integrity-message');
+    if (msg) msg.textContent = `${res.removed || 0} embedding(s) supprime(s)`;
+    showToast('Cleanup embeddings termine', 'success');
+    loadMemoryView();
+  } catch (err) {
+    showToast(`Erreur: ${err.message}`, 'error');
   }
 }
 async function addMemoryChunkUI() {

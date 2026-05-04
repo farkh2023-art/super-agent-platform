@@ -531,6 +531,65 @@ body {
 .stat-card.blue .stat-value { color: var(--blue); }
 .stat-card.yellow .stat-value { color: var(--yellow); }
 
+.memory-eval-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(280px, 0.8fr);
+  gap: 20px;
+  margin-top: 20px;
+}
+.memory-eval-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 180px;
+  overflow-y: auto;
+}
+.memory-eval-query {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px;
+}
+.memory-eval-form {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 12px;
+}
+.memory-eval-form textarea {
+  grid-column: 1 / -1;
+}
+.memory-eval-actions,
+.memory-eval-summary {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+.memory-eval-results {
+  margin-top: 12px;
+}
+.memory-eval-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  margin-top: 10px;
+}
+.memory-eval-table th,
+.memory-eval-table td {
+  border: 1px solid var(--border);
+  padding: 7px 8px;
+  text-align: left;
+}
+.memory-eval-table th {
+  color: var(--text3);
+  background: var(--bg3);
+}
+
 /* ── Tabs ── */
 .tabs { display: flex; gap: 4px; margin-bottom: 16px; border-bottom: 1px solid var(--border); }
 .tab {
@@ -662,5 +721,7 @@ body {
   .main-content { margin-left: 60px; }
   .agents-grid { grid-template-columns: 1fr; }
   .workflow-builder { grid-template-columns: 1fr; }
+  .memory-eval-layout,
+  .memory-eval-form { grid-template-columns: 1fr; }
   .stats-row { gap: 8px; }
 }

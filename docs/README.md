@@ -190,3 +190,7 @@ Suites :
 ## Phase 4D - RAG hybride
 
 La memoire supporte maintenant la recherche `keyword`, `vector` et `hybrid` avec embeddings Ollama locaux optionnels. Voir [PHASE4D.md](PHASE4D.md) pour l'installation Ollama, le reindex, le benchmark et les limites de securite.
+
+## Phase 4E - Evaluation RAG
+
+La memoire inclut maintenant un jeu local de requetes d'evaluation, les metriques `precision@K`, `recall@K`, `nDCG@K`, un export Markdown et le nettoyage des embeddings invalides. Voir [PHASE4E.md](PHASE4E.md).

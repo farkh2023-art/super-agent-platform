@@ -12,6 +12,7 @@ const router = express.Router();
 const { computeMetrics } = require('./metrics');
 const { listChunks } = require('../memory/retriever');
 const embeddingStore = require('../memory/embeddingStore');
+const evaluator = require('../memory/evaluator');
 
 const SENSITIVE_FIELDS = ['anthropicApiKey', 'openaiApiKey', 'password', 'token', 'secret'];
 
@@ -47,7 +48,7 @@ router.get('/download', (req, res) => {
     createdAt: new Date().toISOString(),
     note: 'No API keys are stored in this backup.',
     embeddingsIncluded: false,
-    collections: ['tasks', 'executions', 'artifacts', 'workflows', 'workflow_runs', 'schedules', 'memory', 'metrics'],
+    collections: ['tasks', 'executions', 'artifacts', 'workflows', 'workflow_runs', 'schedules', 'memory', 'memory_eval_queries', 'memory_evaluation_reports', 'metrics'],
   };
   archive.append(Buffer.from(JSON.stringify(manifest, null, 2)), { name: 'manifest.json' });
   archive.append(Buffer.from('false'), { name: 'embeddingsIncluded_false.txt' });
@@ -68,6 +69,19 @@ router.get('/download', (req, res) => {
   archive.append(Buffer.from(JSON.stringify(memoryChunks, null, 2)), { name: 'memory.json' });
   const embeddingMetadata = { ...embeddingStore.readStore().metadata, embeddingsIncluded: false };
   archive.append(Buffer.from(JSON.stringify(embeddingMetadata, null, 2)), { name: 'memory_embeddings_metadata.json' });
+
+  const evalQueries = evaluator.readEvalQueries();
+  archive.append(Buffer.from(JSON.stringify(evalQueries, null, 2)), { name: 'memory_eval_queries.json' });
+  const reportsDir = evaluator.reportsDir();
+  if (fs.existsSync(reportsDir)) {
+    const reports = fs.readdirSync(reportsDir)
+      .filter((name) => /^rag-evaluation-\d{4}-\d{2}-\d{2}-\d{2}-\d{2}\.md$/.test(name))
+      .sort()
+      .slice(-5);
+    for (const report of reports) {
+      archive.file(path.join(reportsDir, report), { name: `memory_evaluation_reports/${report}` });
+    }
+  }
 
   // Metrics snapshot (computed, no secrets)
   const metrics = computeMetrics();

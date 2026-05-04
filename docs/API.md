@@ -243,3 +243,61 @@ Supprime les embeddings sans supprimer les items memoire.
 
 ### POST /api/memory/benchmark
 Compare la latence et le nombre de resultats pour `keyword`, `vector` et `hybrid`.
+
+---
+
+## Memoire / RAG Phase 4E
+
+### GET /api/memory/evaluation/queries
+Liste les requetes locales d'evaluation RAG.
+
+### POST /api/memory/evaluation/queries
+Cree une requete d'evaluation. Les champs `query`, `expectedKeywords` et `description` sont sanitises.
+
+```json
+{
+  "query": "erreur Jest async warning",
+  "expectedKeywords": ["jest", "async", "warning", "worker"],
+  "expectedTypes": ["artifact", "execution", "manual_note"],
+  "description": "Doit retrouver les corrections Jest."
+}
+```
+
+### PUT /api/memory/evaluation/queries/:id
+Met a jour une requete d'evaluation.
+
+### DELETE /api/memory/evaluation/queries/:id
+Supprime une requete d'evaluation.
+
+### POST /api/memory/evaluation/run
+Calcule `precision@K`, `recall@K` et `nDCG@K` pour `keyword`, `vector` et `hybrid`.
+
+```json
+{
+  "topK": 5,
+  "modes": ["keyword", "vector", "hybrid"]
+}
+```
+
+Si les embeddings sont indisponibles, `vector` est marque `unavailable` et `hybrid` replie sur `keyword`.
+
+### GET /api/memory/evaluation/latest
+Retourne la derniere evaluation executee en memoire process.
+
+### POST /api/memory/evaluation/export-report
+Exporte un rapport Markdown dans `backend/data/memory/evaluation-reports/`.
+
+### GET /api/memory/embeddings/integrity
+Retourne l'integrite des embeddings.
+
+```json
+{
+  "totalEmbeddings": 0,
+  "orphans": 0,
+  "stale": 0,
+  "removed": 0
+}
+```
+
+### POST /api/memory/embeddings/cleanup
+Supprime les embeddings orphelins ou stale. Les items memoire ne sont pas supprimes.

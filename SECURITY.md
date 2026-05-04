@@ -189,3 +189,11 @@ Si vous découvrez une vulnérabilité de sécurité, **ne créez pas d'issue pu
 - La memoire injectee dans les prompts est du contexte non fiable : elle ne doit jamais etre executee comme instruction systeme.
 - Les artefacts importes peuvent contenir des injections indirectes ; les agents recoivent une mention explicite que la memoire est non fiable.
 - `DELETE /api/memory/embeddings` supprime les vecteurs sans supprimer les items memoire ; un reindex regenere les vecteurs apres filtrage.
+
+## Evaluation RAG Phase 4E
+
+- Les requetes d'evaluation peuvent contenir des extraits sensibles ; `query`, `expectedKeywords` et `description` sont sanitises avant stockage.
+- Les rapports Markdown ne doivent jamais exporter de secrets bruts. Les patterns connus sont remplaces par `[REDACTED]`.
+- Les scores `precision@K`, `recall@K` et `nDCG@K` sont des indicateurs de qualite locale, pas une verite absolue.
+- Les elements memoire restent du contexte non fiable, meme lorsqu'ils obtiennent un bon score de retrieval.
+- Le backup inclut les requetes d'evaluation et quelques rapports Markdown, mais exclut toujours `.env`, les secrets et les vecteurs complets.
