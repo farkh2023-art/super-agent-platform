@@ -652,6 +652,7 @@ async function loadSettingsView() {
     qs('#status-mock').textContent = status.mockMode ? '✅ Actif' : '❌ Inactif';
 
     updateProviderBadge(status.provider);
+    loadMigrationControl();
   } catch (err) {
     console.error('Settings error:', err);
   }
@@ -730,6 +731,139 @@ function updateProviderBadge(provider) {
 }
 
 // ── Search View ──────────────────────────────────────────────────────────────
+async function loadMigrationControl() {
+  const container = qs('#migration-control-content');
+  const eventsContainer = qs('#migration-events');
+  if (!container) return;
+  container.innerHTML = '<div class="text-muted text-sm">Chargement...</div>';
+  try {
+    const [status, eventData] = await Promise.all([
+      API.getStorageStatus(),
+      API.getStorageEvents().catch(() => ({ events: [] })),
+    ]);
+    const allowMutations = !!status.admin?.allowMutations;
+    const runBtn = qs('#storage-run-migration-btn');
+    const rollbackBtn = qs('#storage-rollback-btn');
+    if (runBtn) {
+      runBtn.disabled = !allowMutations;
+      runBtn.title = allowMutations ? 'Confirmation requise' : 'STORAGE_ADMIN_ALLOW_MUTATIONS=false';
+    }
+    if (rollbackBtn) {
+      rollbackBtn.disabled = !allowMutations;
+      rollbackBtn.title = allowMutations ? 'Confirmation requise' : 'STORAGE_ADMIN_ALLOW_MUTATIONS=false';
+    }
+    container.innerHTML = renderStorageStatus(status);
+    if (eventsContainer) eventsContainer.innerHTML = renderStorageEvents(eventData.events || []);
+  } catch (err) {
+    container.innerHTML = `<div class="text-red">Erreur: ${escHtml(err.message)}</div>`;
+  }
+}
+
+function renderStorageStatus(status) {
+  const collections = Object.entries(status.collections || {});
+  const warnings = status.warnings || [];
+  return `
+    <div class="migration-status">
+      <div class="migration-kpi"><span>Mode</span><strong>${escHtml(status.mode)}</strong></div>
+      <div class="migration-kpi"><span>Read preference</span><strong>${escHtml(status.readPreference)}</strong></div>
+      <div class="migration-kpi"><span>Double-write</span><strong>${status.doubleWrite ? 'ON' : 'OFF'}</strong></div>
+      <div class="migration-kpi"><span>SQLite</span><strong>${status.sqlite?.connected ? 'connected' : 'unavailable'}</strong></div>
+      <div class="migration-kpi"><span>WAL</span><strong>${status.sqlite?.wal ? 'ON' : 'OFF'}</strong></div>
+      <div class="migration-kpi"><span>Mutations UI</span><strong>${status.admin?.allowMutations ? 'enabled' : 'disabled'}</strong></div>
+    </div>
+    ${warnings.length ? `<div class="migration-warnings">${warnings.map((w) => `<div>${escHtml(w)}</div>`).join('')}</div>` : ''}
+    <div class="text-sm text-muted mt-12">DB: ${escHtml(status.sqlite?.dbPathSafe || 'n/a')} | last validation: ${escHtml(status.lastValidationAt || '-')}</div>
+    <table class="migration-table mt-12">
+      <thead><tr><th>Collection</th><th>JSON</th><th>SQLite</th><th>Sync</th></tr></thead>
+      <tbody>
+        ${collections.map(([name, row]) => `
+          <tr>
+            <td>${escHtml(name)}</td>
+            <td>${row.jsonCount ?? 0}</td>
+            <td>${row.sqliteCount ?? 0}</td>
+            <td>${row.inSync ? '<span class="text-green">OK</span>' : '<span class="text-red">DIFF</span>'}</td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  `;
+}
+
+function renderStorageEvents(events) {
+  if (!events.length) return '<div class="text-muted text-sm">Aucun evenement.</div>';
+  return events.slice(0, 20).map((event) => `
+    <div class="migration-event ${escHtml(event.severity)}">
+      <div style="font-weight:600">${escHtml(event.type)} ${event.collection ? `(${escHtml(event.collection)})` : ''}</div>
+      <div class="text-sm text-muted">${escHtml(event.message)} | ${formatDate(event.createdAt)}</div>
+    </div>
+  `).join('');
+}
+
+function setMigrationOutput(data) {
+  const out = qs('#migration-control-output');
+  if (out) out.innerHTML = `<pre>${escHtml(JSON.stringify(data, null, 2)).slice(0, 5000)}</pre>`;
+}
+
+async function runStorageDryRunUI() {
+  try {
+    const data = await API.runStorageDryRun();
+    setMigrationOutput(data);
+    showToast('Dry-run termine', 'success');
+    loadMigrationControl();
+  } catch (err) { showToast(`Erreur: ${err.message}`, 'error'); }
+}
+
+async function validateStorageMigrationUI() {
+  try {
+    const data = await API.validateStorageMigration({ checksums: true, sampleSize: 100 });
+    setMigrationOutput(data);
+    showToast(data.success ? 'Validation OK' : 'Validation avec ecarts', data.success ? 'success' : 'error');
+    loadMigrationControl();
+  } catch (err) { showToast(`Erreur: ${err.message}`, 'error'); }
+}
+
+async function computeStorageChecksumsUI() {
+  try {
+    const data = await API.getStorageChecksums();
+    setMigrationOutput(data);
+    showToast('Checksums calcules', 'success');
+    loadMigrationControl();
+  } catch (err) { showToast(`Erreur: ${err.message}`, 'error'); }
+}
+
+async function exportSqliteDumpUI() {
+  try {
+    const data = await API.exportSqliteDump();
+    setMigrationOutput(data);
+    showToast(`Dump exporte: ${data.filename || data.path}`, 'success');
+    loadMigrationControl();
+  } catch (err) { showToast(`Erreur: ${err.message}`, 'error'); }
+}
+
+function storageRiskConfirmation() {
+  return prompt('Tapez exactement I_UNDERSTAND_STORAGE_RISK pour confirmer cette action.') === 'I_UNDERSTAND_STORAGE_RISK';
+}
+
+async function runStorageMigrationUI() {
+  if (!storageRiskConfirmation()) return;
+  try {
+    const data = await API.runStorageMigration({ confirmation: 'I_UNDERSTAND_STORAGE_RISK' });
+    setMigrationOutput(data);
+    showToast('Migration lancee', 'success');
+    loadMigrationControl();
+  } catch (err) { showToast(`Erreur: ${err.message}`, 'error'); }
+}
+
+async function rollbackStorageUI() {
+  if (!storageRiskConfirmation()) return;
+  try {
+    const data = await API.rollbackStorage({ confirmation: 'I_UNDERSTAND_STORAGE_RISK', fromSqlite: true });
+    setMigrationOutput(data);
+    showToast('Rollback demande', 'success');
+    loadMigrationControl();
+  } catch (err) { showToast(`Erreur: ${err.message}`, 'error'); }
+}
+
 function loadSearchView() {
   const container = qs('#search-results');
   if (container) container.innerHTML = '<div class="text-muted text-sm" style="padding:20px">Entrez un terme et cliquez sur Rechercher.</div>';

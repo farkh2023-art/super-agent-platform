@@ -301,3 +301,47 @@ Retourne l'integrite des embeddings.
 
 ### POST /api/memory/embeddings/cleanup
 Supprime les embeddings orphelins ou stale. Les items memoire ne sont pas supprimes.
+
+---
+
+## Storage / Migration Control Phase 5B
+
+### GET /api/storage/status
+Retourne le mode `json|sqlite|hybrid`, la preference de lecture, le double-write, le statut SQLite masque et les counts JSON/SQLite par collection.
+
+### GET /api/storage/checksums
+Compare les checksums normalises par collection.
+
+### GET /api/storage/events
+Liste les derniers evenements de synchronisation, migration, validation ou rollback.
+
+### DELETE /api/storage/events
+Efface l'historique. Requiert `API_KEY`.
+
+### POST /api/storage/migration/dry-run
+Simule la migration JSON vers SQLite sans ecriture.
+
+### POST /api/storage/migration/validate
+Valide counts, IDs et checksums optionnels.
+
+```json
+{
+  "checksums": true,
+  "sampleSize": 100
+}
+```
+
+### POST /api/storage/sqlite/export-dump
+Exporte un dump logique SQLite sans secrets connus et sans vecteurs complets.
+
+### POST /api/storage/migration/run
+Refuse par defaut si `STORAGE_ADMIN_ALLOW_MUTATIONS=false`. Si active, exige :
+
+```json
+{
+  "confirmation": "I_UNDERSTAND_STORAGE_RISK"
+}
+```
+
+### POST /api/storage/rollback
+Rollback protege avec la meme confirmation. Ne supprime jamais la base SQLite.

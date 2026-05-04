@@ -76,6 +76,16 @@ const API = {
   // Health
   health: () => apiFetch('/health'),
 
+  // Storage / Migration Control
+  getStorageStatus: () => apiFetch('/storage/status'),
+  getStorageChecksums: () => apiFetch('/storage/checksums'),
+  getStorageEvents: () => apiFetch('/storage/events'),
+  runStorageDryRun: () => apiFetch('/storage/migration/dry-run', { method: 'POST', body: JSON.stringify({}) }),
+  validateStorageMigration: (body = {}) => apiFetch('/storage/migration/validate', { method: 'POST', body: JSON.stringify(body) }),
+  exportSqliteDump: () => apiFetch('/storage/sqlite/export-dump', { method: 'POST', body: JSON.stringify({}) }),
+  runStorageMigration: (body) => apiFetch('/storage/migration/run', { method: 'POST', body: JSON.stringify(body) }),
+  rollbackStorage: (body) => apiFetch('/storage/rollback', { method: 'POST', body: JSON.stringify(body) }),
+
   // Schedules
   getSchedules: () => apiFetch('/schedules'),
   createSchedule: (body) => apiFetch('/schedules', { method: 'POST', body: JSON.stringify(body) }),

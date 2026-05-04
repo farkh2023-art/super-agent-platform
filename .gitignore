@@ -15,7 +15,15 @@
 backend/data/
 data/
 *.sqlite
+*.sqlite-shm
+*.sqlite-wal
 *.db
+backend/data/*.sqlite
+backend/data/*.sqlite-shm
+backend/data/*.sqlite-wal
+backend/data/db/*.sqlite
+backend/data/db/*.sqlite-shm
+backend/data/db/*.sqlite-wal
 
 # ── Dépendances Node.js ──────────────────────────────────────
 node_modules/
@@ -33,6 +41,7 @@ yarn-error.log*
 
 # ── Données de test temporaires ──────────────────────────────
 backend/data-test/
+backend/migration-backups/
 coverage/
 .nyc_output/
 

@@ -13,6 +13,8 @@ const { computeMetrics } = require('./metrics');
 const { listChunks } = require('../memory/retriever');
 const embeddingStore = require('../memory/embeddingStore');
 const evaluator = require('../memory/evaluator');
+const storageEvents = require('../storage/storageEvents');
+const { createSqliteDump, dumpsDir } = require('../storage/sqliteDump');
 
 const SENSITIVE_FIELDS = ['anthropicApiKey', 'openaiApiKey', 'password', 'token', 'secret'];
 
@@ -48,7 +50,9 @@ router.get('/download', (req, res) => {
     createdAt: new Date().toISOString(),
     note: 'No API keys are stored in this backup.',
     embeddingsIncluded: false,
-    collections: ['tasks', 'executions', 'artifacts', 'workflows', 'workflow_runs', 'schedules', 'memory', 'memory_eval_queries', 'memory_evaluation_reports', 'metrics'],
+    sqliteDumpIncluded: String(process.env.BACKUP_INCLUDE_SQLITE_DUMP || 'true').toLowerCase() === 'true',
+    sqliteRawIncluded: String(process.env.BACKUP_INCLUDE_SQLITE_DB || 'false').toLowerCase() === 'true',
+    collections: ['tasks', 'executions', 'artifacts', 'workflows', 'workflow_runs', 'schedules', 'memory', 'memory_eval_queries', 'memory_evaluation_reports', 'storage_events', 'metrics'],
   };
   archive.append(Buffer.from(JSON.stringify(manifest, null, 2)), { name: 'manifest.json' });
   archive.append(Buffer.from('false'), { name: 'embeddingsIncluded_false.txt' });
@@ -81,6 +85,29 @@ router.get('/download', (req, res) => {
     for (const report of reports) {
       archive.file(path.join(reportsDir, report), { name: `memory_evaluation_reports/${report}` });
     }
+  }
+
+  archive.append(Buffer.from(JSON.stringify({ events: storageEvents.listEvents({ limit: 100 }) }, null, 2)), { name: 'storage_events.json' });
+
+  if (String(process.env.BACKUP_INCLUDE_SQLITE_DUMP || 'true').toLowerCase() === 'true') {
+    try {
+      const dump = createSqliteDump();
+      archive.append(Buffer.from(JSON.stringify(dump.dump, null, 2)), { name: `sqlite/${dump.filename}` });
+    } catch (err) {
+      archive.append(Buffer.from(JSON.stringify({ unavailable: true, error: err.message }, null, 2)), { name: 'sqlite/dump_unavailable.json' });
+    }
+  }
+
+  if (String(process.env.BACKUP_INCLUDE_SQLITE_DB || 'false').toLowerCase() === 'true') {
+    try {
+      const dbPath = require('../storage/sqlite').resolveDbPath();
+      if (fs.existsSync(dbPath)) archive.file(dbPath, { name: 'sqlite/super-agent-platform.sqlite' });
+    } catch {}
+  }
+
+  if (fs.existsSync(dumpsDir())) {
+    const reports = fs.readdirSync(dumpsDir()).filter((name) => /^sqlite-dump-.*\.json$/.test(name)).sort().slice(-3);
+    for (const report of reports) archive.file(path.join(dumpsDir(), report), { name: `sqlite/recent/${report}` });
   }
 
   // Metrics snapshot (computed, no secrets)

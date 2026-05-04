@@ -211,6 +211,32 @@
               </div>
             </div>
           </div>
+
+          <div class="card mt-16" id="migration-control-card">
+            <div class="flex items-center justify-between mb-12">
+              <div>
+                <div class="card-title" style="margin-bottom:2px">Migration Control</div>
+                <div class="text-sm text-muted">Pilotage admin JSON / SQLite, dry-run, validation, checksums et rollback protege.</div>
+              </div>
+              <button class="btn btn-secondary btn-sm" onclick="loadMigrationControl()">Refresh status</button>
+            </div>
+            <div id="migration-control-content" class="migration-grid">
+              <div class="text-muted text-sm">Chargement...</div>
+            </div>
+            <div class="migration-actions">
+              <button class="btn btn-secondary btn-sm" onclick="runStorageDryRunUI()">Run dry-run</button>
+              <button class="btn btn-secondary btn-sm" onclick="validateStorageMigrationUI()">Validate migration</button>
+              <button class="btn btn-secondary btn-sm" onclick="computeStorageChecksumsUI()">Compute checksums</button>
+              <button class="btn btn-secondary btn-sm" onclick="exportSqliteDumpUI()">Export SQLite dump</button>
+              <button id="storage-run-migration-btn" class="btn btn-danger btn-sm" onclick="runStorageMigrationUI()" disabled>Run migration reelle</button>
+              <button id="storage-rollback-btn" class="btn btn-danger btn-sm" onclick="rollbackStorageUI()" disabled>Rollback</button>
+            </div>
+            <div id="migration-control-output" class="migration-output text-sm text-muted"></div>
+            <div class="card-title mt-16">Storage events</div>
+            <div id="migration-events" class="migration-events">
+              <div class="text-muted text-sm">Aucun evenement charge.</div>
+            </div>
+          </div>
         </div>
       </div>
 

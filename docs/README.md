@@ -194,3 +194,7 @@ La memoire supporte maintenant la recherche `keyword`, `vector` et `hybrid` avec
 ## Phase 4E - Evaluation RAG
 
 La memoire inclut maintenant un jeu local de requetes d'evaluation, les metriques `precision@K`, `recall@K`, `nDCG@K`, un export Markdown et le nettoyage des embeddings invalides. Voir [PHASE4E.md](PHASE4E.md).
+
+## Phase 5 / 5B - SQLite et Migration Control
+
+Le stockage JSON reste le mode par defaut. SQLite est disponible comme backend optionnel avec migration, validation, rollback et dump logique. La vue Parametres inclut un panneau Migration Control pour status avance, checksums, dry-run, validation et export dump. Voir [PHASE5.md](PHASE5.md) et [PHASE5B.md](PHASE5B.md).

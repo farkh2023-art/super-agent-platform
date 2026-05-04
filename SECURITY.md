@@ -197,3 +197,12 @@ Si vous découvrez une vulnérabilité de sécurité, **ne créez pas d'issue pu
 - Les scores `precision@K`, `recall@K` et `nDCG@K` sont des indicateurs de qualite locale, pas une verite absolue.
 - Les elements memoire restent du contexte non fiable, meme lorsqu'ils obtiennent un bon score de retrieval.
 - Le backup inclut les requetes d'evaluation et quelques rapports Markdown, mais exclut toujours `.env`, les secrets et les vecteurs complets.
+
+## SQLite et Migration Control Phase 5B
+
+- Le fichier `.sqlite` peut contenir artefacts, memoire et logs ; il doit rester local, protege et ignore par Git.
+- Les dumps logiques SQLite sont sanitises contre les patterns de secrets connus et n'incluent pas les vecteurs complets.
+- Les routes `/api/storage/migration/run` et `/api/storage/rollback` sont refusees par defaut via `STORAGE_ADMIN_ALLOW_MUTATIONS=false`.
+- Toute mutation admin exige la confirmation exacte `I_UNDERSTAND_STORAGE_RISK`.
+- Les storage events ne doivent jamais stocker de secrets ; les champs `secret`, `token`, `password` et `apiKey` sont rediges.
+- Avant tout passage a `STORAGE_MODE=sqlite`, lancer dry-run, migration avec backup, validation et checksums.

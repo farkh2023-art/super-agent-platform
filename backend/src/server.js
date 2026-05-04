@@ -62,6 +62,7 @@ app.use('/api/backup', require('./routes/backup'));
 app.use('/api/schedules', require('./routes/schedules'));
 app.use('/api/metrics', require('./routes/metrics'));
 app.use('/api/memory', require('./routes/memory'));
+app.use('/api/storage', require('./routes/storage'));
 
 // Health check
 app.get('/api/health', (req, res) => {
