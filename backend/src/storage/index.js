@@ -9,10 +9,10 @@ const { getSqliteStatus, resolveDbPath } = require('./sqlite');
 const { COLLECTIONS } = require('./schema');
 const events = require('./storageEvents');
 const validationReports = require('./validationReports');
+const runtimeConfig = require('./runtimeConfig');
 
 function mode() {
-  const value = String(process.env.STORAGE_MODE || 'json').toLowerCase();
-  return ['json', 'sqlite', 'hybrid'].includes(value) ? value : 'json';
+  return runtimeConfig.getStorageMode();
 }
 
 function adapter() {
@@ -96,7 +96,7 @@ function getStorageStatus() {
   return {
     mode: currentMode,
     readPreference: process.env.SQLITE_READ_PREFERENCE === 'sqlite' ? 'sqlite' : 'json',
-    doubleWrite: String(process.env.SQLITE_DOUBLE_WRITE || 'false').toLowerCase() === 'true',
+    doubleWrite: runtimeConfig.getDoubleWrite(),
     sqlite: {
       enabled: sqlite.enabled,
       connected: sqlite.connected,

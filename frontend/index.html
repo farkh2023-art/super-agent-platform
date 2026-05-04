@@ -212,30 +212,50 @@
             </div>
           </div>
 
+          <div id="storage-desync-banner" style="display:none;background:var(--red,#e74c3c);color:#fff;padding:8px 16px;border-radius:6px;margin-bottom:12px;font-size:13px;"></div>
+
           <div class="card mt-16" id="migration-control-card">
             <div class="flex items-center justify-between mb-12">
               <div>
                 <div class="card-title" style="margin-bottom:2px">Migration Control</div>
-                <div class="text-sm text-muted">Pilotage admin JSON / SQLite : dry-run, validation persistante, comparaison ID par ID, checksums, readiness, alertes desync et rollback protege.</div>
+                <div class="text-sm text-muted">Pilotage admin JSON / SQLite : dry-run, validation persistante, comparaison ID par ID, checksums, readiness, alertes desync, basculement contrôlé et rollback protege.</div>
               </div>
               <button class="btn btn-secondary btn-sm" onclick="loadMigrationControl()">Refresh status</button>
             </div>
             <div id="migration-control-content" class="migration-grid">
               <div class="text-muted text-sm">Chargement...</div>
             </div>
+
+            <div class="card-title mt-16" style="font-size:13px;color:var(--text2)">— Observation —</div>
             <div class="migration-actions">
-              <button class="btn btn-secondary btn-sm" onclick="runStorageDryRunUI()">Run dry-run</button>
-              <button class="btn btn-secondary btn-sm" onclick="validateStorageMigrationUI()">Validate migration</button>
-              <button class="btn btn-secondary btn-sm" onclick="computeStorageChecksumsUI()">Compute checksums</button>
-              <button class="btn btn-secondary btn-sm" onclick="exportSqliteDumpUI()">Export SQLite dump</button>
+              <button class="btn btn-secondary btn-sm" onclick="runStorageDryRunUI()">Dry-run</button>
+              <button class="btn btn-secondary btn-sm" onclick="validateStorageMigrationUI()">Valider migration</button>
+              <button class="btn btn-secondary btn-sm" onclick="computeStorageChecksumsUI()">Checksums</button>
               <button class="btn btn-secondary btn-sm" onclick="checkSqliteReadinessUI()">SQLite readiness</button>
               <button class="btn btn-secondary btn-sm" onclick="checkDesyncAlertsUI()">Alertes desync</button>
               <button class="btn btn-secondary btn-sm" onclick="compareIdsByIdUI()">Comparer IDs</button>
-              <button class="btn btn-secondary btn-sm" onclick="listValidationReportsUI()">Rapports validation</button>
-              <button class="btn btn-secondary btn-sm" onclick="downloadChecksumReportUI()">Rapport checksum .md</button>
+              <button class="btn btn-secondary btn-sm" onclick="listValidationReportsUI()">Rapports</button>
+              <button class="btn btn-secondary btn-sm" onclick="downloadChecksumReportUI()">Checksum .md</button>
+              <button class="btn btn-secondary btn-sm" onclick="exportSqliteDumpUI()">Export dump</button>
+            </div>
+
+            <div class="card-title mt-16" style="font-size:13px;color:var(--text2)">— Basculement contrôlé —</div>
+            <div class="migration-actions">
+              <button class="btn btn-secondary btn-sm" onclick="checkReadinessGateUI()">Readiness gate</button>
+              <button class="btn btn-secondary btn-sm" onclick="showSwitchHistoryUI()">Historique switch</button>
+              <button class="btn btn-secondary btn-sm" onclick="setDoubleWriteUI(true)">Activer double-write</button>
+              <button class="btn btn-secondary btn-sm" onclick="setDoubleWriteUI(false)">Desactiver double-write</button>
+              <button class="btn btn-secondary btn-sm" onclick="switchStorageModeUI('hybrid')">Basculer → hybrid</button>
+              <button class="btn btn-secondary btn-sm" onclick="switchStorageModeUI('sqlite')">Basculer → SQLite</button>
+              <button class="btn btn-secondary btn-sm" onclick="switchStorageModeUI('json')">Revenir → JSON</button>
+            </div>
+
+            <div class="card-title mt-16" style="font-size:13px;color:var(--text2)">— Actions dangereuses —</div>
+            <div class="migration-actions">
               <button id="storage-run-migration-btn" class="btn btn-danger btn-sm" onclick="runStorageMigrationUI()" disabled>Run migration reelle</button>
               <button id="storage-rollback-btn" class="btn btn-danger btn-sm" onclick="rollbackStorageUI()" disabled>Rollback</button>
             </div>
+
             <div id="migration-control-output" class="migration-output text-sm text-muted"></div>
             <div class="card-title mt-16">Storage events</div>
             <div id="migration-events" class="migration-events">

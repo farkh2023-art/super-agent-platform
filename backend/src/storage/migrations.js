@@ -178,6 +178,43 @@ function rollbackSqliteToJson(options = {}) {
   return result;
 }
 
+function getMigrationReadinessGate() {
+  const { getSqliteStatus } = require('./sqlite');
+  const sqlite = getSqliteStatus();
+  const blockers = [];
+  const warnings = [];
+
+  if (!sqlite.exists) blockers.push('SQLite database does not exist — run dry-run then migration first');
+  if (sqlite.exists && !sqlite.connected) blockers.push('SQLite database cannot be opened');
+
+  let totalJson = 0;
+  let totalSqlite = 0;
+  for (const collection of COLLECTIONS) {
+    const jc = jsonStore.count ? jsonStore.count(collection) : jsonStore.list(collection).length;
+    let sc = 0;
+    try { sc = sqliteStore.count ? sqliteStore.count(collection) : sqliteStore.list(collection).length; } catch { /* db may not exist */ }
+    totalJson += jc;
+    totalSqlite += sc;
+    if (jc > 0 && sc < jc) warnings.push(`Collection '${collection}': ${jc - sc} item(s) missing in SQLite`);
+  }
+
+  const lastValidationAt = events.latestEventAt(['validation_completed']);
+  if (!lastValidationAt) warnings.push('No successful validation recorded — run validation before switching');
+  const lastMigrationAt = events.latestEventAt(['migration_completed']);
+  if (!lastMigrationAt) warnings.push('No completed migration recorded — run migration before switching');
+
+  return {
+    ready: blockers.length === 0,
+    blockers,
+    warnings,
+    lastValidationAt,
+    lastMigrationAt,
+    totalJson,
+    totalSqlite,
+    sqlite: { exists: sqlite.exists, connected: sqlite.connected, wal: sqlite.wal },
+  };
+}
+
 module.exports = {
   collectionSummary,
   migrateJsonToSqlite,
@@ -185,4 +222,5 @@ module.exports = {
   rollbackSqliteToJson,
   backupJsonData,
   compareIdByIdAllCollections,
+  getMigrationReadinessGate,
 };

@@ -8,6 +8,7 @@ const migrations = require('../storage/migrations');
 const { createSqliteDump } = require('../storage/sqliteDump');
 const { getSqliteStatus } = require('../storage/sqlite');
 const validationReports = require('../storage/validationReports');
+const runtimeConfig = require('../storage/runtimeConfig');
 
 const router = express.Router();
 const CONFIRMATION = 'I_UNDERSTAND_STORAGE_RISK';
@@ -143,6 +144,53 @@ router.get('/validation-reports/:filename', (req, res) => {
     if (err.code === 'NOT_FOUND') return res.status(404).json({ success: false, error: 'Report not found' });
     res.status(500).json({ success: false, error: err.message });
   }
+});
+
+router.get('/migration/readiness-gate', (req, res) => {
+  try {
+    const gate = migrations.getMigrationReadinessGate();
+    res.status(gate.ready ? 200 : 409).json(gate);
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+router.get('/switch-history', (req, res) => {
+  const history = events.listEvents({ limit: 200 }).filter((e) => e.type === 'storage_mode_switched' || e.type === 'double_write_changed');
+  res.json({ history });
+});
+
+router.post('/switch-mode', mutationsAllowed, (req, res) => {
+  const newMode = req.body?.mode;
+  if (!['json', 'sqlite', 'hybrid'].includes(newMode)) {
+    return res.status(400).json({ success: false, error: 'mode must be json, sqlite or hybrid' });
+  }
+  if (newMode === 'sqlite' || newMode === 'hybrid') {
+    const gate = migrations.getMigrationReadinessGate();
+    if (!gate.ready) return res.status(409).json({ success: false, error: 'Readiness gate failed', blockers: gate.blockers });
+  }
+  const previous = runtimeConfig.getStorageMode();
+  runtimeConfig.setStorageMode(newMode);
+  events.createEvent({
+    type: 'storage_mode_switched',
+    severity: 'warning',
+    message: `Storage mode changed from ${previous} to ${newMode}`,
+    metadata: { from: previous, to: newMode },
+  });
+  res.json({ success: true, previous, mode: newMode });
+});
+
+router.post('/set-double-write', mutationsAllowed, (req, res) => {
+  const enabled = req.body?.enabled === true;
+  const previous = runtimeConfig.getDoubleWrite();
+  runtimeConfig.setDoubleWrite(enabled);
+  events.createEvent({
+    type: 'double_write_changed',
+    severity: 'info',
+    message: `Double-write ${enabled ? 'enabled' : 'disabled'}`,
+    metadata: { from: previous, to: enabled },
+  });
+  res.json({ success: true, doubleWrite: enabled });
 });
 
 router.post('/migration/run', mutationsAllowed, (req, res) => {

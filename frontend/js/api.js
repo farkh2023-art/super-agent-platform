@@ -89,6 +89,10 @@ const API = {
   getDesyncAlerts: () => apiFetch('/storage/checksums/desync-alerts'),
   compareIdsAllCollections: () => apiFetch('/storage/compare-ids'),
   listValidationReports: () => apiFetch('/storage/validation-reports'),
+  getMigrationReadinessGate: () => apiFetch('/storage/migration/readiness-gate'),
+  getSwitchHistory: () => apiFetch('/storage/switch-history'),
+  switchStorageMode: (body) => apiFetch('/storage/switch-mode', { method: 'POST', body: JSON.stringify(body) }),
+  setDoubleWrite: (body) => apiFetch('/storage/set-double-write', { method: 'POST', body: JSON.stringify(body) }),
 
   // Schedules
   getSchedules: () => apiFetch('/schedules'),

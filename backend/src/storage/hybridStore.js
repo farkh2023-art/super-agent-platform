@@ -3,13 +3,14 @@
 const jsonStore = require('./jsonStore');
 const sqliteStore = require('./sqliteStore');
 const events = require('./storageEvents');
+const runtimeConfig = require('./runtimeConfig');
 
 function readPreference() {
   return process.env.SQLITE_READ_PREFERENCE === 'sqlite' ? 'sqlite' : 'json';
 }
 
 function doubleWriteEnabled() {
-  return String(process.env.SQLITE_DOUBLE_WRITE || 'false').toLowerCase() === 'true';
+  return runtimeConfig.getDoubleWrite();
 }
 
 function readOp(method, collection, ...args) {

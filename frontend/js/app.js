@@ -891,6 +891,45 @@ function downloadChecksumReportUI() {
   showToast('Rapport Markdown telecharge', 'success');
 }
 
+async function checkReadinessGateUI() {
+  try {
+    const data = await API.getMigrationReadinessGate();
+    setMigrationOutput(data);
+    if (data.ready) {
+      showToast('Readiness gate OK — basculement possible', 'success');
+    } else {
+      showToast(`Readiness gate: ${data.blockers.length} bloqueur(s)`, 'error');
+    }
+  } catch (err) { showToast(`Erreur: ${err.message}`, 'error'); }
+}
+
+async function switchStorageModeUI(targetMode) {
+  if (!storageRiskConfirmation()) return;
+  try {
+    const data = await API.switchStorageMode({ mode: targetMode, confirmation: 'I_UNDERSTAND_STORAGE_RISK' });
+    setMigrationOutput(data);
+    showToast(`Mode bascule vers ${data.mode}`, 'success');
+    loadMigrationControl();
+  } catch (err) { showToast(`Erreur: ${err.message}`, 'error'); }
+}
+
+async function setDoubleWriteUI(enabled) {
+  try {
+    const data = await API.setDoubleWrite({ enabled, confirmation: 'I_UNDERSTAND_STORAGE_RISK' });
+    setMigrationOutput(data);
+    showToast(`Double-write ${data.doubleWrite ? 'active' : 'desactive'}`, 'success');
+    loadMigrationControl();
+  } catch (err) { showToast(`Erreur: ${err.message}`, 'error'); }
+}
+
+async function showSwitchHistoryUI() {
+  try {
+    const data = await API.getSwitchHistory();
+    setMigrationOutput(data);
+    showToast(`${(data.history || []).length} evenement(s) de switch`, 'success');
+  } catch (err) { showToast(`Erreur: ${err.message}`, 'error'); }
+}
+
 function storageRiskConfirmation() {
   return prompt('Tapez exactement I_UNDERSTAND_STORAGE_RISK pour confirmer cette action.') === 'I_UNDERSTAND_STORAGE_RISK';
 }
@@ -1698,6 +1737,17 @@ wsClient.on('disconnected', () => {
 wsClient.on('execution_done', () => {
   if (state.activeView === 'executions') loadExecutionsView();
   if (state.activeView === 'dashboard') loadDashboard();
+});
+
+// Storage desync alerts from background monitor
+wsClient.on('storage_desync', (event) => {
+  const banner = qs('#storage-desync-banner');
+  if (!banner) return;
+  const count = event.desynced || 0;
+  const cols = (event.alerts || []).map((a) => a.collection).join(', ');
+  banner.textContent = `⚠️ Desync storage detecte dans ${count} collection(s): ${cols}`;
+  banner.style.display = 'block';
+  showToast(`Desync storage: ${cols}`, 'error');
 });
 
 // ── Init ─────────────────────────────────────────────────────────────────────
