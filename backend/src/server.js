@@ -59,6 +59,8 @@ app.use('/api/dashboard', require('./routes/dashboard'));
 app.use('/api/search', require('./routes/search'));
 app.use('/api/workflow-runs', require('./routes/workflow-runs'));
 app.use('/api/backup', require('./routes/backup'));
+app.use('/api/schedules', require('./routes/schedules'));
+app.use('/api/metrics', require('./routes/metrics'));
 
 // Health check
 app.get('/api/health', (req, res) => {
@@ -124,6 +126,7 @@ if (require.main === module) {
     console.log(`   WS     : ws://localhost:${PORT}/ws`);
     console.log(`   Mode   : ${process.env.AI_PROVIDER || 'mock'}`);
     console.log(`   Données: ${require('./storage').DATA_DIR}\n`);
+    require('./engine/scheduler').start();
   });
 }
 

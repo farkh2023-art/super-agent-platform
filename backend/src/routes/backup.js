@@ -9,6 +9,8 @@ const storage = require('../storage');
 const router = express.Router();
 
 // Fields to strip from settings to prevent secret leakage
+const { computeMetrics } = require('./metrics');
+
 const SENSITIVE_FIELDS = ['anthropicApiKey', 'openaiApiKey', 'password', 'token', 'secret'];
 
 function sanitize(obj) {
@@ -42,12 +44,12 @@ router.get('/download', (req, res) => {
     version: '1.0.0',
     createdAt: new Date().toISOString(),
     note: 'No API keys are stored in this backup.',
-    collections: ['tasks', 'executions', 'artifacts', 'workflows', 'workflow_runs'],
+    collections: ['tasks', 'executions', 'artifacts', 'workflows', 'workflow_runs', 'schedules', 'metrics'],
   };
   archive.append(Buffer.from(JSON.stringify(manifest, null, 2)), { name: 'manifest.json' });
 
   // Collections — read via storage to get live data, sanitize settings
-  const collections = ['tasks', 'executions', 'artifacts', 'workflows', 'workflow_runs'];
+  const collections = ['tasks', 'executions', 'artifacts', 'workflows', 'workflow_runs', 'schedules'];
   for (const col of collections) {
     const data = storage.findAll(col);
     archive.append(Buffer.from(JSON.stringify(data, null, 2)), { name: `${col}.json` });
@@ -56,6 +58,10 @@ router.get('/download', (req, res) => {
   // Settings (sanitized)
   const settings = sanitize(storage.readRecord('settings'));
   archive.append(Buffer.from(JSON.stringify(settings, null, 2)), { name: 'settings.json' });
+
+  // Metrics snapshot (computed, no secrets)
+  const metrics = computeMetrics();
+  archive.append(Buffer.from(JSON.stringify(metrics, null, 2)), { name: 'metrics.json' });
 
   // JSONL logs (if they exist)
   const logsDir = path.join(dataDir, 'logs');
