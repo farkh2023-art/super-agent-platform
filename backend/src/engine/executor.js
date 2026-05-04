@@ -6,6 +6,26 @@ const { callAI } = require('../providers/factory');
 const storage = require('../storage');
 const { writeLog } = require('../logging/jsonl');
 const { sendWebhook } = require('../notifications/webhook');
+const { addChunk, search } = require('../memory/retriever');
+const { sanitizeContent } = require('../memory/sanitize');
+
+function isMemoryEnabled(execution) {
+  if (execution.useMemory === false) return false;
+  return process.env.MEMORY_ENABLED === 'true';
+}
+
+async function buildMemoryContext(task) {
+  try {
+    const results = await search(task, 3);
+    if (results.length === 0) return '';
+    const ctx = results
+      .map((r) => `[${r.source}${r.agentId ? ` · ${r.agentId}` : ''}]: ${r.content.slice(0, 400)}`)
+      .join('\n\n');
+    return `--- Contexte mémoire pertinent ---\n${ctx}\n---\n\n`;
+  } catch {
+    return '';
+  }
+}
 
 // broadcast function set by server.js
 let broadcastFn = null;
@@ -38,7 +58,7 @@ function appendLog(executionId, level, message, extra = {}) {
   return log;
 }
 
-async function executeStep(executionId, step, task) {
+async function executeStep(executionId, step, task, useMemory) {
   const agent = getAgentById(step.agentId);
   if (!agent) {
     appendLog(executionId, 'error', `Agent inconnu : ${step.agentId}`);
@@ -58,10 +78,18 @@ async function executeStep(executionId, step, task) {
   emit(executionId, 'step_start', { stepId: step.id, agentId: agent.id, agentName: agent.name });
 
   try {
-    const userMessage = `Tâche globale: ${task}\n\nTa mission spécifique: ${step.instructions || task}`;
+    let userMessage = `Tâche globale: ${task}\n\nTa mission spécifique: ${step.instructions || task}`;
+    if (useMemory) {
+      const memCtx = await buildMemoryContext(task);
+      if (memCtx) userMessage = memCtx + userMessage;
+    }
     const result = await callAI(agent.id, agent.systemPrompt, userMessage);
 
     appendLog(executionId, 'success', `✅ ${agent.name} terminé`, { agentId: agent.id });
+
+    if (useMemory) {
+      addChunk({ content: result, source: 'artifact', agentId: agent.id }).catch(() => {});
+    }
 
     // Save artifact
     const artifact = {
@@ -111,6 +139,8 @@ async function runExecution(executionId) {
   const execution = storage.findById('executions', executionId);
   if (!execution) throw new Error(`Execution ${executionId} introuvable`);
 
+  const useMemory = isMemoryEnabled(execution);
+
   storage.update('executions', executionId, { status: 'running', startedAt: new Date().toISOString() });
   emit(executionId, 'execution_start', { executionId });
   appendLog(executionId, 'info', `🚀 Démarrage de l'exécution (${execution.steps.length} agents)`);
@@ -126,7 +156,7 @@ async function runExecution(executionId) {
       break;
     }
 
-    const stepResult = await executeStep(executionId, step, execution.task);
+    const stepResult = await executeStep(executionId, step, execution.task, useMemory);
     if (stepResult.status === 'error') hasError = true;
 
     // Small delay between agents
@@ -144,7 +174,7 @@ async function runExecution(executionId) {
   sendWebhook('execution_done', { executionId, task: execution.task, status: finalStatus }).catch(() => {});
 }
 
-function createExecution(plan) {
+function createExecution(plan, options = {}) {
   const executionId = uuid();
   const steps = plan.agents.map((a, i) => ({
     id: uuid(),
@@ -156,6 +186,10 @@ function createExecution(plan) {
     status: 'pending',
   }));
 
+  const useMemory = options.useMemory !== undefined
+    ? options.useMemory
+    : (process.env.MEMORY_ENABLED === 'true');
+
   const execution = {
     id: executionId,
     task: plan.task,
@@ -163,6 +197,7 @@ function createExecution(plan) {
     steps,
     logs: [],
     status: 'pending',
+    useMemory,
     createdAt: new Date().toISOString(),
   };
 

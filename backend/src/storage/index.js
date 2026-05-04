@@ -84,12 +84,17 @@ function remove(collection, id) {
   return true;
 }
 
+function clear(collection) {
+  writeCollection(collection, []);
+}
+
 module.exports = {
   findAll,
   findById,
   create,
   update,
   remove,
+  clear,
   readRecord,
   writeRecord,
   DATA_DIR,

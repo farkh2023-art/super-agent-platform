@@ -61,6 +61,7 @@ app.use('/api/workflow-runs', require('./routes/workflow-runs'));
 app.use('/api/backup', require('./routes/backup'));
 app.use('/api/schedules', require('./routes/schedules'));
 app.use('/api/metrics', require('./routes/metrics'));
+app.use('/api/memory', require('./routes/memory'));
 
 // Health check
 app.get('/api/health', (req, res) => {

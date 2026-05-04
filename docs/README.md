@@ -73,7 +73,13 @@ npm start        # ou: node src/server.js
 | Déclenchement manuel (`POST /api/schedules/:id/trigger`) | ✅ |
 | Métriques par agent (`GET /api/metrics`) | ✅ |
 | Backup ZIP inclut schedules + metrics | ✅ |
-| Tests backend (109/109) | ✅ |
+| Mémoire persistante (`POST /api/memory`) | ✅ |
+| Recherche RAG (`GET /api/memory/search`) | ✅ |
+| Injection de contexte mémoire dans les exécutions | ✅ |
+| Filtrage des secrets avant indexation | ✅ |
+| Embeddings Ollama optionnels (`MEMORY_EMBEDDINGS=ollama`) | ✅ |
+| Backup ZIP inclut memory sans secrets | ✅ |
+| Tests backend (129/129) | ✅ |
 
 ---
 
@@ -158,7 +164,7 @@ Vous pouvez aussi changer le fournisseur depuis l'interface web → **Paramètre
 
 ```bash
 cd backend
-npm test                   # 109 tests (8 suites)
+npm test                   # 129 tests (9 suites)
 npm run test:coverage      # Avec rapport de couverture
 ```
 
@@ -171,6 +177,7 @@ Suites :
 - `tests/phase2d.test.js` — Test provider, Ollama health, dashboard enrichi, audit secrets (14 tests)
 - `tests/phase3.test.js` — Auth API key, webhook, Docker files, backup regression (15 tests)
 - `tests/phase4a.test.js` — Schedules CRUD, trigger, métriques, backup (22 tests)
+- `tests/phase4b.test.js` — Mémoire CRUD, secrets, RAG search, injection, backup (20 tests)
 
 ---
 

@@ -10,6 +10,7 @@ const router = express.Router();
 
 // Fields to strip from settings to prevent secret leakage
 const { computeMetrics } = require('./metrics');
+const { listChunks } = require('../memory/retriever');
 
 const SENSITIVE_FIELDS = ['anthropicApiKey', 'openaiApiKey', 'password', 'token', 'secret'];
 
@@ -44,7 +45,7 @@ router.get('/download', (req, res) => {
     version: '1.0.0',
     createdAt: new Date().toISOString(),
     note: 'No API keys are stored in this backup.',
-    collections: ['tasks', 'executions', 'artifacts', 'workflows', 'workflow_runs', 'schedules', 'metrics'],
+    collections: ['tasks', 'executions', 'artifacts', 'workflows', 'workflow_runs', 'schedules', 'memory', 'metrics'],
   };
   archive.append(Buffer.from(JSON.stringify(manifest, null, 2)), { name: 'manifest.json' });
 
@@ -58,6 +59,10 @@ router.get('/download', (req, res) => {
   // Settings (sanitized)
   const settings = sanitize(storage.readRecord('settings'));
   archive.append(Buffer.from(JSON.stringify(settings, null, 2)), { name: 'settings.json' });
+
+  // Memory chunks (strip embeddings – large float arrays; content already sanitized at index time)
+  const memoryChunks = listChunks().map(({ embedding, ...c }) => c);
+  archive.append(Buffer.from(JSON.stringify(memoryChunks, null, 2)), { name: 'memory.json' });
 
   // Metrics snapshot (computed, no secrets)
   const metrics = computeMetrics();

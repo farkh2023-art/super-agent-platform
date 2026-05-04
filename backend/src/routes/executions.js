@@ -10,7 +10,7 @@ const router = express.Router();
 
 // POST /api/executions – create and launch execution from a plan
 router.post('/', async (req, res) => {
-  const { task, agentIds, planText } = req.body;
+  const { task, agentIds, planText, useMemory } = req.body;
   if (!task) return res.status(400).json({ error: 'Le champ "task" est requis' });
 
   try {
@@ -20,7 +20,7 @@ router.post('/', async (req, res) => {
     } else {
       plan = await generatePlan(task, agentIds || []);
     }
-    const execution = createExecution(plan);
+    const execution = createExecution(plan, { useMemory });
     limiter.run(() => runExecution(execution.id)).catch(console.error);
     res.status(201).json(execution);
   } catch (err) {
