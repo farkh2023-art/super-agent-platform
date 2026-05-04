@@ -57,7 +57,9 @@ router.get('/status', (req, res) => {
     openaiModel:  process.env.OPENAI_MODEL  || 'gpt-4o',
     ollamaUrl:    process.env.OLLAMA_BASE_URL || 'http://localhost:11434',
     ollamaModel:  process.env.OLLAMA_MODEL  || 'llama3.2',
-    mockMode:     getProvider() === 'mock',
+    mockMode:           getProvider() === 'mock',
+    webhookConfigured:  !!process.env.WEBHOOK_URL,
+    authEnabled:        !!process.env.API_KEY,
   });
 });
 

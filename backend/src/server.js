@@ -45,6 +45,9 @@ app.use(express.urlencoded({ extended: false }));
 const FRONTEND_DIR = path.resolve(__dirname, '../../frontend');
 app.use(express.static(FRONTEND_DIR));
 
+// ── API Auth (optional – enabled when API_KEY env var is set) ─────────────────
+app.use('/api', require('./middleware/auth'));
+
 // ── API Routes ────────────────────────────────────────────────────────────────
 app.use('/api/agents', require('./routes/agents'));
 app.use('/api/tasks', require('./routes/tasks'));

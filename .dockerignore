@@ -1,0 +1,33 @@
+# Secrets – never include in image
+.env
+.env.local
+*.pem
+*.key
+
+# Runtime data – use a volume instead
+backend/data/
+backend/data-test*/
+
+# Dependencies – rebuilt during image build
+node_modules
+*/node_modules
+
+# Dev artifacts
+coverage/
+*.log
+.nyc_output/
+
+# Git
+.git
+.gitignore
+.gitattributes
+
+# IDE
+.idea/
+.vscode/
+*.suo
+*.user
+
+# Docs (optional – remove lines below if you want docs in the image)
+docs/
+*.md

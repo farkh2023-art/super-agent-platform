@@ -2,7 +2,7 @@
 
 Plateforme web locale pour gérer et orchestrer 10 agents IA spécialisés.
 
-[![Tests](https://img.shields.io/badge/tests-72%2F72%20✅-brightgreen)]()
+[![Tests](https://img.shields.io/badge/tests-87%2F87%20✅-brightgreen)]()
 [![Mode Mock](https://img.shields.io/badge/mode-mock%20(sans%20clé%20API)-yellow)]()
 [![Node.js](https://img.shields.io/badge/node-%3E%3D22-blue)]()
 
@@ -63,10 +63,13 @@ npm start        # ou: node src/server.js
 | Diagnostic Ollama (`GET /api/settings/ollama-health`) | ✅ |
 | Dashboard enrichi (taux de réussite, statut système, concurrence) | ✅ |
 | Erreurs providers enrichies (codes HTTP, messages actionables) | ✅ |
+| Authentification par clé API (`API_KEY`, optionnelle) | ✅ |
+| Notifications webhook (`WEBHOOK_URL` + `WEBHOOK_SECRET`) | ✅ |
+| Déploiement Docker (`Dockerfile` + `docker-compose.yml`) | ✅ |
 | Support Claude / OpenAI / Ollama | ✅ |
 | Interface web SPA complète | ✅ |
 | Dépôt git initialisé + `.gitignore` | ✅ |
-| Tests backend (58/58) | ✅ |
+| Tests backend (87/87) | ✅ |
 
 ---
 
@@ -162,6 +165,7 @@ Suites :
 - `tests/dashboard.test.js` — Dashboard stats endpoint (6 tests)
 - `tests/phase2c.test.js` — Santé détaillée, recherche, import/export, backup (16 tests)
 - `tests/phase2d.test.js` — Test provider, Ollama health, dashboard enrichi, audit secrets (14 tests)
+- `tests/phase3.test.js` — Auth API key, webhook, Docker files, backup regression (15 tests)
 
 ---
 

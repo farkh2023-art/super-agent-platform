@@ -106,6 +106,26 @@ function escHtml(str) {
 
 ---
 
+## Authentification par clé API (Phase 3)
+
+Lorsque `API_KEY` est défini dans `.env`, tous les endpoints `/api/*` exigent un token :
+
+```
+Authorization: Bearer <API_KEY>
+# ou
+X-Api-Key: <API_KEY>
+```
+
+- Routes **toujours publiques** : `GET /api/health`, `GET /api/health/detailed`
+- Si `API_KEY` est vide, l'authentification est désactivée (mode local sans friction)
+- La valeur de `API_KEY` n'est **jamais retournée** par l'API – `GET /api/settings/status` retourne uniquement `authEnabled: bool`
+- La valeur de `API_KEY` n'est **jamais incluse** dans le backup ZIP (non stockée en JSON)
+
+**Génération d'une clé sécurisée :**
+```bash
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+```
+
 ## Protection contre les abus
 
 ### Limite de concurrence (`MAX_CONCURRENT_EXECUTIONS`)

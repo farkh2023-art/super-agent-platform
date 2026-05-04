@@ -5,6 +5,7 @@ const { getAgentById } = require('../agents/registry');
 const { callAI } = require('../providers/factory');
 const storage = require('../storage');
 const { writeLog } = require('../logging/jsonl');
+const { sendWebhook } = require('../notifications/webhook');
 
 // broadcast function set by server.js
 let broadcastFn = null;
@@ -140,6 +141,7 @@ async function runExecution(executionId) {
 
   appendLog(executionId, 'info', `🏁 Exécution terminée : ${finalStatus}`);
   emit(executionId, 'execution_done', { executionId, status: finalStatus });
+  sendWebhook('execution_done', { executionId, task: execution.task, status: finalStatus }).catch(() => {});
 }
 
 function createExecution(plan) {
