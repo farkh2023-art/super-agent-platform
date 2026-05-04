@@ -48,6 +48,13 @@ app.use(express.static(FRONTEND_DIR));
 // ── API Auth (optional – enabled when API_KEY env var is set) ─────────────────
 app.use('/api', require('./middleware/auth'));
 
+// ── Audit log + rate limiter run early (active only in multi-user mode) ───────
+app.use('/api', require('./middleware/auditLog').auditLog);
+app.use('/api', require('./middleware/rateLimiter').rateLimiter);
+
+// ── Auth routes (always public for /login and /mode) ─────────────────────────
+app.use('/api/auth', require('./routes/auth'));
+
 // ── API Routes ────────────────────────────────────────────────────────────────
 app.use('/api/agents', require('./routes/agents'));
 app.use('/api/tasks', require('./routes/tasks'));
@@ -63,6 +70,7 @@ app.use('/api/schedules', require('./routes/schedules'));
 app.use('/api/metrics', require('./routes/metrics'));
 app.use('/api/memory', require('./routes/memory'));
 app.use('/api/storage', require('./routes/storage'));
+app.use('/api/workspaces', require('./routes/workspaces'));
 
 // Health check
 app.get('/api/health', (req, res) => {
