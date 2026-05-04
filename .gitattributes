@@ -1,0 +1,16 @@
+# Normalise les fins de ligne pour tous les fichiers texte
+* text=auto eol=lf
+
+# Force LF sur les fichiers source
+*.js   text eol=lf
+*.json text eol=lf
+*.md   text eol=lf
+*.css  text eol=lf
+*.html text eol=lf
+*.env.example text eol=lf
+
+# Binaires — ne pas toucher
+*.docx binary
+*.png  binary
+*.jpg  binary
+*.pdf  binary

@@ -1,0 +1,13 @@
+{
+  "name": "super-agent-platform",
+  "version": "1.0.0",
+  "description": "Plateforme web locale de gestion de 10 agents IA spécialisés",
+  "scripts": {
+    "start": "cd backend && node src/server.js",
+    "dev": "cd backend && node --watch src/server.js",
+    "install:all": "cd backend && npm install",
+    "test": "cd backend && npm test",
+    "test:coverage": "cd backend && npm run test:coverage"
+  },
+  "private": true
+}

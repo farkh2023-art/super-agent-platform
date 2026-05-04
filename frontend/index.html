@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Super-Agent Platform</title>
+  <link rel="stylesheet" href="/css/styles.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="app-layout">
+
+    <!-- ── Sidebar ── -->
+    <aside class="sidebar">
+      <div class="sidebar-logo">
+        <div class="logo-title">⚡ SuperAgent</div>
+        <div class="logo-sub">Multi-Agent Platform v1.0</div>
+      </div>
+
+      <nav class="sidebar-nav">
+        <button class="nav-item" data-view="dashboard">
+          <span class="nav-icon">🏠</span>
+          <span>Tableau de bord</span>
+        </button>
+        <button class="nav-item" data-view="agents">
+          <span class="nav-icon">🤖</span>
+          <span>Mes Agents</span>
+        </button>
+        <button class="nav-item" data-view="execute">
+          <span class="nav-icon">▶</span>
+          <span>Nouvelle Tâche</span>
+        </button>
+        <button class="nav-item" data-view="executions">
+          <span class="nav-icon">📋</span>
+          <span>Exécutions</span>
+        </button>
+        <button class="nav-item" data-view="artifacts">
+          <span class="nav-icon">📎</span>
+          <span>Artefacts</span>
+        </button>
+        <button class="nav-item" data-view="workflows">
+          <span class="nav-icon">🔄</span>
+          <span>Workflows</span>
+        </button>
+        <button class="nav-item" data-view="settings">
+          <span class="nav-icon">⚙️</span>
+          <span>Paramètres</span>
+        </button>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="provider-badge" id="provider-badge">
+          <div class="provider-dot mock" id="ws-dot" title="WebSocket"></div>
+          <span id="provider-label">Mock Mode</span>
+        </div>
+      </div>
+    </aside>
+
+    <!-- ── Main Content ── -->
+    <main class="main-content">
+
+      <!-- ╔═══════════════════════════════════════╗ -->
+      <!-- ║  VIEW: DASHBOARD                      ║ -->
+      <!-- ╚═══════════════════════════════════════╝ -->
+      <div id="view-dashboard" class="view">
+        <div class="page-header">
+          <h1>🏠 Tableau de bord</h1>
+          <p>Bienvenue sur la Super-Agent Platform</p>
+        </div>
+        <div class="page-body">
+          <div class="stats-row">
+            <div class="stat-card accent">
+              <div class="stat-value" id="stat-agents">–</div>
+              <div class="stat-label">Agents disponibles</div>
+            </div>
+            <div class="stat-card blue">
+              <div class="stat-value" id="stat-executions">–</div>
+              <div class="stat-label">Exécutions totales</div>
+            </div>
+            <div class="stat-card yellow">
+              <div class="stat-value" id="stat-running">–</div>
+              <div class="stat-label">En cours</div>
+            </div>
+            <div class="stat-card green">
+              <div class="stat-value" id="stat-artifacts">–</div>
+              <div class="stat-label">Artefacts générés</div>
+            </div>
+          </div>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+            <!-- Quick Actions -->
+            <div class="card">
+              <div class="card-title">⚡ Actions rapides</div>
+              <div style="display:flex;flex-direction:column;gap:10px">
+                <button class="btn btn-primary" onclick="navigate('execute')" style="justify-content:center">
+                  ▶ Nouvelle Tâche Super-Agent
+                </button>
+                <button class="btn btn-secondary" onclick="navigate('agents')" style="justify-content:center">
+                  🤖 Explorer les 10 Agents
+                </button>
+                <button class="btn btn-secondary" onclick="navigate('workflows')" style="justify-content:center">
+                  🔄 Créer un Workflow Multi-Agent
+                </button>
+                <button class="btn btn-secondary" onclick="navigate('artifacts')" style="justify-content:center">
+                  📎 Voir les Artefacts
+                </button>
+              </div>
+            </div>
+
+            <!-- Recent Executions -->
+            <div class="card">
+              <div class="card-title">🕐 Exécutions récentes</div>
+              <div id="recent-executions" class="steps-list">
+                <div class="empty-state" style="padding:20px">
+                  <div class="empty-icon">📭</div>
+                  <p>Chargement...</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Guide -->
+          <div class="card" style="margin-top:20px">
+            <div class="card-title">📖 Guide de démarrage rapide</div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px">
+              <div style="background:var(--bg3);border-radius:8px;padding:14px">
+                <div style="font-size:20px;margin-bottom:6px">1️⃣</div>
+                <div style="font-weight:600;font-size:13px;margin-bottom:4px">Explorer les Agents</div>
+                <div style="font-size:12px;color:var(--text2)">Découvrez les 10 agents spécialisés et leurs capacités.</div>
+              </div>
+              <div style="background:var(--bg3);border-radius:8px;padding:14px">
+                <div style="font-size:20px;margin-bottom:6px">2️⃣</div>
+                <div style="font-weight:600;font-size:13px;margin-bottom:4px">Écrire une Tâche</div>
+                <div style="font-size:12px;color:var(--text2)">Décrivez votre demande au Super-Agent (en français ou anglais).</div>
+              </div>
+              <div style="background:var(--bg3);border-radius:08px;padding:14px">
+                <div style="font-size:20px;margin-bottom:6px">3️⃣</div>
+                <div style="font-weight:600;font-size:13px;margin-bottom:4px">Voir le Plan</div>
+                <div style="font-size:12px;color:var(--text2)">Le Super-Agent propose un plan d'exécution avec les agents sélectionnés.</div>
+              </div>
+              <div style="background:var(--bg3);border-radius:8px;padding:14px">
+                <div style="font-size:20px;margin-bottom:6px">4️⃣</div>
+                <div style="font-weight:600;font-size:13px;margin-bottom:4px">Lancer & Suivre</div>
+                <div style="font-size:12px;color:var(--text2)">Suivez l'exécution en temps réel et récupérez les artefacts.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ╔═══════════════════════════════════════╗ -->
+      <!-- ║  VIEW: AGENTS                         ║ -->
+      <!-- ╚═══════════════════════════════════════╝ -->
+      <div id="view-agents" class="view" style="display:none">
+        <div class="page-header">
+          <h1>🤖 Mes 10 Agents</h1>
+          <p>Chaque agent est spécialisé dans un domaine. Cliquez pour voir les détails.</p>
+        </div>
+        <div class="page-body">
+          <div id="agents-grid" class="agents-grid">
+            <div class="text-muted text-sm" style="padding:20px">Chargement des agents...</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ╔═══════════════════════════════════════╗ -->
+      <!-- ║  VIEW: EXECUTE                        ║ -->
+      <!-- ╚═══════════════════════════════════════╝ -->
+      <div id="view-execute" class="view" style="display:none">
+        <div class="page-header">
+          <h1>▶ Nouvelle Tâche</h1>
+          <p>Décrivez votre demande – le Super-Agent sélectionnera les meilleurs agents automatiquement.</p>
+        </div>
+        <div class="page-body">
+          <!-- Task Input -->
+          <div class="task-form">
+            <div class="card-title">📝 Votre Demande</div>
+            <textarea id="task-input" class="task-input"
+              placeholder="Ex: Analyse la lignée de données de notre système SQL Server et génère un backlog Agile pour la migration vers PostgreSQL. Inclus les dépendances et l'impact des changements.
+
+(Shift+Entrée pour nouvelle ligne, Entrée pour planifier)"></textarea>
+
+            <div style="margin-top:14px">
+              <div class="form-label">🎯 Sélection des agents (laisser vide = sélection automatique)</div>
+              <div id="agent-chips" class="agent-selector">
+                <div class="text-muted text-sm">Chargement des agents...</div>
+              </div>
+            </div>
+
+            <div class="btn-group">
+              <button id="plan-btn" class="btn btn-primary" onclick="submitTask()">
+                🗺️ Générer le Plan
+              </button>
+              <button class="btn btn-secondary" onclick="qs('#task-input').value='';state.selectedAgentIds=[];renderAgentChips()">
+                🗑 Effacer
+              </button>
+            </div>
+          </div>
+
+          <!-- Plan Display -->
+          <div id="plan-display" style="display:none">
+            <div class="card mb-16">
+              <div class="card-title">🗺️ Plan Proposé</div>
+              <div class="form-label mb-8">Agents sélectionnés :</div>
+              <div id="plan-agents" class="agent-selector mb-12"></div>
+              <div id="plan-content" class="plan-box markdown-content"></div>
+            </div>
+
+            <div style="display:flex;gap:12px;align-items:center">
+              <button id="run-btn" class="btn btn-success" style="display:none">
+                🚀 Lancer l'Exécution
+              </button>
+              <button class="btn btn-secondary" onclick="qs('#plan-display').style.display='none'">
+                ✏️ Modifier la Tâche
+              </button>
+            </div>
+          </div>
+
+          <!-- Execution Panel (inline preview) -->
+          <div id="execution-panel" style="display:none;margin-top:20px">
+            <div class="card mb-16">
+              <div class="card-title">⚙️ Exécution en cours</div>
+              <div class="text-sm text-muted mb-12" id="exec-task-label"></div>
+              <div id="steps-timeline" class="steps-list mb-12"></div>
+              <div class="form-label mb-8">📋 Logs temps réel</div>
+              <div id="log-panel" class="log-panel"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ╔═══════════════════════════════════════╗ -->
+      <!-- ║  VIEW: EXECUTIONS                     ║ -->
+      <!-- ╚═══════════════════════════════════════╝ -->
+      <div id="view-executions" class="view" style="display:none">
+        <div class="page-header">
+          <div style="display:flex;align-items:center;justify-content:space-between">
+            <div>
+              <h1>📋 Exécutions</h1>
+              <p>Historique de toutes les exécutions multi-agents</p>
+            </div>
+            <div style="display:flex;gap:8px">
+              <button class="btn btn-secondary btn-sm" onclick="loadExecutionsView()">🔄 Rafraîchir</button>
+              <button class="btn btn-primary btn-sm" onclick="navigate('execute')">+ Nouvelle</button>
+            </div>
+          </div>
+        </div>
+        <div class="page-body">
+          <div id="executions-list"></div>
+        </div>
+      </div>
+
+      <!-- ╔═══════════════════════════════════════╗ -->
+      <!-- ║  VIEW: ARTIFACTS                      ║ -->
+      <!-- ╚═══════════════════════════════════════╝ -->
+      <div id="view-artifacts" class="view" style="display:none">
+        <div class="page-header">
+          <div style="display:flex;align-items:center;justify-content:space-between">
+            <div>
+              <h1>📎 Artefacts</h1>
+              <p>Tous les documents générés par les agents</p>
+            </div>
+            <button class="btn btn-secondary btn-sm" onclick="loadArtifactsView()">🔄 Rafraîchir</button>
+          </div>
+        </div>
+        <div class="page-body">
+          <div id="artifacts-grid"></div>
+        </div>
+      </div>
+
+      <!-- ╔═══════════════════════════════════════╗ -->
+      <!-- ║  VIEW: WORKFLOWS                      ║ -->
+      <!-- ╚═══════════════════════════════════════╝ -->
+      <div id="view-workflows" class="view" style="display:none">
+        <div class="page-header">
+          <h1>🔄 Workflows Multi-Agents</h1>
+          <p>Créez des pipelines d'agents qui s'enchaînent automatiquement</p>
+        </div>
+        <div class="page-body">
+          <!-- Builder -->
+          <div class="card mb-16">
+            <div class="card-title">➕ Créer un Workflow</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
+              <div class="form-group" style="margin-bottom:0">
+                <label class="form-label">Nom du workflow</label>
+                <input id="wf-name" class="form-input" placeholder="Ex: Pipeline d'analyse de dépôt">
+              </div>
+              <div class="form-group" style="margin-bottom:0">
+                <label class="form-label">Description (optionnel)</label>
+                <input id="wf-desc" class="form-input" placeholder="Description du workflow...">
+              </div>
+            </div>
+
+            <div class="form-label">Étapes du workflow</div>
+            <div id="wf-steps-builder" style="display:flex;flex-direction:column;gap:12px;margin-bottom:12px;min-height:60px"></div>
+
+            <div class="btn-group">
+              <button class="btn btn-secondary" onclick="addWorkflowStep()">➕ Ajouter une étape</button>
+              <button class="btn btn-primary" onclick="saveWorkflow()">💾 Sauvegarder le Workflow</button>
+            </div>
+          </div>
+
+          <!-- Workflow List -->
+          <div class="card-title">📋 Workflows existants</div>
+          <div id="workflows-list" style="margin-top:12px"></div>
+        </div>
+      </div>
+
+      <!-- ╔═══════════════════════════════════════╗ -->
+      <!-- ║  VIEW: SETTINGS                       ║ -->
+      <!-- ╚═══════════════════════════════════════╝ -->
+      <div id="view-settings" class="view" style="display:none">
+        <div class="page-header">
+          <h1>⚙️ Paramètres</h1>
+          <p>Configurez votre fournisseur IA et les modèles</p>
+        </div>
+        <div class="page-body">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+            <!-- Configuration -->
+            <div class="card">
+              <div class="card-title">🔧 Configuration IA</div>
+              <div class="form-group">
+                <label class="form-label">Fournisseur IA</label>
+                <select id="setting-provider" class="form-select">
+                  <option value="mock">🎭 Mock Mode (sans clé API)</option>
+                  <option value="claude">🟣 Claude (Anthropic)</option>
+                  <option value="openai">🟢 OpenAI</option>
+                  <option value="ollama">🦙 Ollama (local)</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Modèle Claude</label>
+                <select id="setting-claude-model" class="form-select">
+                  <option value="claude-sonnet-4-6">claude-sonnet-4-6 (défaut)</option>
+                  <option value="claude-opus-4-7">claude-opus-4-7</option>
+                  <option value="claude-haiku-4-5-20251001">claude-haiku-4-5</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Modèle OpenAI</label>
+                <select id="setting-openai-model" class="form-select">
+                  <option value="gpt-4o">gpt-4o (défaut)</option>
+                  <option value="gpt-4o-mini">gpt-4o-mini</option>
+                  <option value="gpt-4-turbo">gpt-4-turbo</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Modèle Ollama</label>
+                <input id="setting-ollama-model" class="form-input" placeholder="llama3.2">
+              </div>
+              <div class="form-group">
+                <label class="form-label">URL Ollama</label>
+                <input id="setting-ollama-url" class="form-input" placeholder="http://localhost:11434">
+              </div>
+              <button class="btn btn-primary" onclick="saveSettings()">💾 Sauvegarder</button>
+            </div>
+
+            <!-- Status -->
+            <div>
+              <div class="card mb-16">
+                <div class="card-title">📊 Statut des Fournisseurs</div>
+                <div style="display:flex;flex-direction:column;gap:10px">
+                  <div class="flex items-center justify-between">
+                    <span class="text-muted text-sm">Fournisseur actif</span>
+                    <span id="status-provider" style="font-weight:600">–</span>
+                  </div>
+                  <div class="flex items-center justify-between">
+                    <span class="text-muted text-sm">Clé Claude (ANTHROPIC_API_KEY)</span>
+                    <span id="status-claude-key">–</span>
+                  </div>
+                  <div class="flex items-center justify-between">
+                    <span class="text-muted text-sm">Clé OpenAI (OPENAI_API_KEY)</span>
+                    <span id="status-openai-key">–</span>
+                  </div>
+                  <div class="flex items-center justify-between">
+                    <span class="text-muted text-sm">URL Ollama</span>
+                    <span id="status-ollama" class="text-sm">–</span>
+                  </div>
+                  <div class="flex items-center justify-between">
+                    <span class="text-muted text-sm">Mode Mock</span>
+                    <span id="status-mock">–</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="card">
+                <div class="card-title">💡 Configuration via .env</div>
+                <div style="background:var(--bg3);border-radius:8px;padding:12px;font-family:var(--mono);font-size:12px;line-height:1.8;color:var(--text2)">
+                  <div><span style="color:var(--accent)"># Copiez .env.example en .env</span></div>
+                  <div>AI_PROVIDER=<span style="color:var(--green)">mock</span></div>
+                  <div>ANTHROPIC_API_KEY=<span style="color:var(--green)">sk-ant-...</span></div>
+                  <div>OPENAI_API_KEY=<span style="color:var(--green)">sk-...</span></div>
+                  <div>OLLAMA_BASE_URL=<span style="color:var(--green)">http://localhost:11434</span></div>
+                </div>
+                <p style="font-size:11px;color:var(--text3);margin-top:10px">
+                  Les clés API sont chargées depuis les variables d'environnement pour la sécurité. Elles ne sont jamais retournées par l'API.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </main>
+  </div>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/ws.js"></script>
+  <script src="/js/app.js"></script>
+</body>
+</html>
