@@ -6,6 +6,8 @@ const checksums = require('../storage/checksums');
 const events = require('../storage/storageEvents');
 const migrations = require('../storage/migrations');
 const { createSqliteDump } = require('../storage/sqliteDump');
+const { getSqliteStatus } = require('../storage/sqlite');
+const validationReports = require('../storage/validationReports');
 
 const router = express.Router();
 const CONFIRMATION = 'I_UNDERSTAND_STORAGE_RISK';
@@ -76,6 +78,69 @@ router.post('/sqlite/export-dump', (req, res) => {
     events.createEvent({ type: 'sqlite_dump_exported', severity: 'info', message: 'SQLite logical dump exported', metadata: { filename: result.filename } });
     res.json({ success: true, filename: result.filename, path: result.path, downloadUrl: null });
   } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+router.get('/sqlite/readiness', (req, res) => {
+  const status = getSqliteStatus();
+  const ready = status.connected && status.exists;
+  const checks = {
+    exists: status.exists,
+    connected: status.connected,
+    wal: status.wal,
+    error: status.error || null,
+  };
+  res.status(ready ? 200 : 503).json({ ready, checks, dbPathSafe: 'backend/data/*.sqlite' });
+});
+
+router.get('/checksums/report.md', (req, res) => {
+  const result = checksums.compareAllCollectionChecksums();
+  const md = checksums.generateChecksumReportMarkdown(result);
+  res.setHeader('Content-Type', 'text/markdown; charset=utf-8');
+  res.setHeader('Content-Disposition', `attachment; filename="checksum-report-${new Date().toISOString().slice(0, 10)}.md"`);
+  res.send(md);
+});
+
+router.get('/checksums/desync-alerts', (req, res) => {
+  const result = checksums.detectAndAlertDesyncs();
+  if (result.desynced > 0) {
+    events.createEvent({
+      type: 'desync_detected',
+      severity: 'warning',
+      message: `Desync detected in ${result.desynced} collection(s)`,
+      metadata: { collections: result.alerts.map((a) => a.collection) },
+    });
+  }
+  res.json(result);
+});
+
+router.get('/compare-ids', (req, res) => {
+  try {
+    const result = migrations.compareIdByIdAllCollections();
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+router.get('/validation-reports', (req, res) => {
+  try {
+    res.json({ reports: validationReports.listValidationReports() });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+router.get('/validation-reports/:filename', (req, res) => {
+  try {
+    const report = validationReports.loadValidationReport(req.params.filename);
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Content-Disposition', `attachment; filename="${req.params.filename}"`);
+    res.send(JSON.stringify(report, null, 2));
+  } catch (err) {
+    if (err.code === 'INVALID_FILENAME') return res.status(400).json({ success: false, error: 'Invalid filename' });
+    if (err.code === 'NOT_FOUND') return res.status(404).json({ success: false, error: 'Report not found' });
     res.status(500).json({ success: false, error: err.message });
   }
 });

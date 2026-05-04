@@ -8,6 +8,7 @@ const sqliteStore = require('./sqliteStore');
 const { openDatabase, resolveDbPath } = require('./sqlite');
 const { COLLECTIONS } = require('./schema');
 const events = require('./storageEvents');
+const validationReports = require('./validationReports');
 
 function nowStamp() {
   return new Date().toISOString().replace(/[:.]/g, '-');
@@ -128,7 +129,34 @@ function validateSqliteMigration(options = {}) {
     message: result.success ? 'SQLite migration validation passed' : 'SQLite migration validation found differences',
     metadata: { durationMs: result.durationMs },
   });
+  try {
+    result.reportFilename = validationReports.saveValidationReport(result);
+  } catch { /* non-blocking */ }
   return result;
+}
+
+function compareIdByIdAllCollections() {
+  const summary = { collections: {}, desynced: [] };
+  for (const collection of COLLECTIONS) {
+    const jsonItems = jsonStore.list(collection);
+    let sqliteItems = [];
+    let error = null;
+    try { sqliteItems = sqliteStore.list(collection); } catch (err) { error = err.message; }
+    const jsonMap = new Map(jsonItems.map((i) => [i.id, i]).filter(([id]) => id));
+    const sqlMap = new Map(sqliteItems.map((i) => [i.id, i]).filter(([id]) => id));
+    const missingInSqlite = [...jsonMap.keys()].filter((id) => !sqlMap.has(id));
+    const extraInSqlite = [...sqlMap.keys()].filter((id) => !jsonMap.has(id));
+    const checksumMismatches = [];
+    for (const [id, item] of jsonMap) {
+      const other = sqlMap.get(id);
+      if (other && checksumItem(item) !== checksumItem(other)) checksumMismatches.push(id);
+    }
+    const inSync = !error && missingInSqlite.length === 0 && extraInSqlite.length === 0 && checksumMismatches.length === 0;
+    summary.collections[collection] = { jsonCount: jsonItems.length, sqliteCount: sqliteItems.length, missingInSqlite, extraInSqlite, checksumMismatches, inSync, error };
+    if (!inSync) summary.desynced.push(collection);
+  }
+  summary.allInSync = summary.desynced.length === 0;
+  return summary;
 }
 
 function rollbackSqliteToJson(options = {}) {
@@ -156,4 +184,5 @@ module.exports = {
   validateSqliteMigration,
   rollbackSqliteToJson,
   backupJsonData,
+  compareIdByIdAllCollections,
 };

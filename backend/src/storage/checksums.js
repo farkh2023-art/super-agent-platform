@@ -84,10 +84,50 @@ function compareAllCollectionChecksums() {
   };
 }
 
+function generateChecksumReportMarkdown(result) {
+  const now = new Date().toISOString();
+  const { summary, collections } = result;
+  const rows = Object.entries(collections).map(([name, row]) => {
+    const match = row.match ? '✓' : '✗';
+    const avail = row.available ? row.sqliteCount : 'N/A';
+    return `| ${name} | ${row.jsonCount} | ${avail} | ${match} |`;
+  });
+  return [
+    '# SQLite Checksum Report',
+    '',
+    `Generated at: ${now}`,
+    '',
+    '## Summary',
+    '',
+    `- Total collections: ${summary.totalCollections}`,
+    `- Matching: ${summary.matching}`,
+    `- Mismatching: ${summary.mismatching}`,
+    '',
+    '## Collections',
+    '',
+    '| Collection | JSON count | SQLite count | Match |',
+    '|---|---|---|---|',
+    ...rows,
+  ].join('\n');
+}
+
+function detectAndAlertDesyncs() {
+  const result = compareAllCollectionChecksums();
+  const alerts = [];
+  for (const [collection, row] of Object.entries(result.collections)) {
+    if (row.available && !row.match) {
+      alerts.push({ collection, jsonCount: row.jsonCount, sqliteCount: row.sqliteCount });
+    }
+  }
+  return { checked: result.summary.totalCollections, desynced: alerts.length, alerts };
+}
+
 module.exports = {
   normalizeForChecksum,
   computeJsonCollectionChecksum,
   computeSqliteCollectionChecksum,
   compareCollectionChecksums,
   compareAllCollectionChecksums,
+  generateChecksumReportMarkdown,
+  detectAndAlertDesyncs,
 };

@@ -15,6 +15,7 @@ const embeddingStore = require('../memory/embeddingStore');
 const evaluator = require('../memory/evaluator');
 const storageEvents = require('../storage/storageEvents');
 const { createSqliteDump, dumpsDir } = require('../storage/sqliteDump');
+const { reportsDir: validationReportsDir } = require('../storage/validationReports');
 
 const SENSITIVE_FIELDS = ['anthropicApiKey', 'openaiApiKey', 'password', 'token', 'secret'];
 
@@ -52,6 +53,7 @@ router.get('/download', (req, res) => {
     embeddingsIncluded: false,
     sqliteDumpIncluded: String(process.env.BACKUP_INCLUDE_SQLITE_DUMP || 'true').toLowerCase() === 'true',
     sqliteRawIncluded: String(process.env.BACKUP_INCLUDE_SQLITE_DB || 'false').toLowerCase() === 'true',
+    validationReportsIncluded: true,
     collections: ['tasks', 'executions', 'artifacts', 'workflows', 'workflow_runs', 'schedules', 'memory', 'memory_eval_queries', 'memory_evaluation_reports', 'storage_events', 'metrics'],
   };
   archive.append(Buffer.from(JSON.stringify(manifest, null, 2)), { name: 'manifest.json' });
@@ -108,6 +110,18 @@ router.get('/download', (req, res) => {
   if (fs.existsSync(dumpsDir())) {
     const reports = fs.readdirSync(dumpsDir()).filter((name) => /^sqlite-dump-.*\.json$/.test(name)).sort().slice(-3);
     for (const report of reports) archive.file(path.join(dumpsDir(), report), { name: `sqlite/recent/${report}` });
+  }
+
+  // Validation reports (last 5, no secrets — already sanitized at write time)
+  const vDir = validationReportsDir();
+  if (fs.existsSync(vDir)) {
+    const vReports = fs.readdirSync(vDir)
+      .filter((name) => /^validation-\d{4}-\d{2}-\d{2}-\d{2}-\d{2}\.json$/.test(name))
+      .sort()
+      .slice(-5);
+    for (const report of vReports) {
+      archive.file(path.join(vDir, report), { name: `validation-reports/${report}` });
+    }
   }
 
   // Metrics snapshot (computed, no secrets)

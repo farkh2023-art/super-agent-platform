@@ -762,6 +762,10 @@ async function loadMigrationControl() {
 function renderStorageStatus(status) {
   const collections = Object.entries(status.collections || {});
   const warnings = status.warnings || [];
+  const lastReport = status.lastValidationReport;
+  const reportLink = lastReport
+    ? `<a href="/api/storage/validation-reports/${encodeURIComponent(lastReport.filename)}" class="text-blue" download>Telecharger dernier rapport</a>`
+    : '';
   return `
     <div class="migration-status">
       <div class="migration-kpi"><span>Mode</span><strong>${escHtml(status.mode)}</strong></div>
@@ -772,7 +776,11 @@ function renderStorageStatus(status) {
       <div class="migration-kpi"><span>Mutations UI</span><strong>${status.admin?.allowMutations ? 'enabled' : 'disabled'}</strong></div>
     </div>
     ${warnings.length ? `<div class="migration-warnings">${warnings.map((w) => `<div>${escHtml(w)}</div>`).join('')}</div>` : ''}
-    <div class="text-sm text-muted mt-12">DB: ${escHtml(status.sqlite?.dbPathSafe || 'n/a')} | last validation: ${escHtml(status.lastValidationAt || '-')}</div>
+    <div class="text-sm text-muted mt-12">
+      DB: ${escHtml(status.sqlite?.dbPathSafe || 'n/a')} | last validation: ${escHtml(status.lastValidationAt || '-')}
+      ${lastReport ? ` | dernier rapport: ${escHtml(lastReport.filename)}` : ''}
+      ${reportLink ? ` &nbsp;${reportLink}` : ''}
+    </div>
     <table class="migration-table mt-12">
       <thead><tr><th>Collection</th><th>JSON</th><th>SQLite</th><th>Sync</th></tr></thead>
       <tbody>
@@ -838,6 +846,49 @@ async function exportSqliteDumpUI() {
     showToast(`Dump exporte: ${data.filename || data.path}`, 'success');
     loadMigrationControl();
   } catch (err) { showToast(`Erreur: ${err.message}`, 'error'); }
+}
+
+async function checkSqliteReadinessUI() {
+  try {
+    const data = await API.getSqliteReadiness();
+    setMigrationOutput(data);
+    showToast(data.ready ? 'SQLite pret' : 'SQLite non pret', data.ready ? 'success' : 'error');
+  } catch (err) { showToast(`Erreur: ${err.message}`, 'error'); }
+}
+
+async function checkDesyncAlertsUI() {
+  try {
+    const data = await API.getDesyncAlerts();
+    setMigrationOutput(data);
+    showToast(data.desynced === 0 ? 'Pas de desync detecte' : `${data.desynced} desync(s) detecte(s)`, data.desynced === 0 ? 'success' : 'error');
+  } catch (err) { showToast(`Erreur: ${err.message}`, 'error'); }
+}
+
+async function compareIdsByIdUI() {
+  try {
+    const data = await API.compareIdsAllCollections();
+    setMigrationOutput(data);
+    showToast(data.allInSync ? 'Tous les IDs sont syncs' : `Desyncs dans: ${data.desynced.join(', ')}`, data.allInSync ? 'success' : 'error');
+    loadMigrationControl();
+  } catch (err) { showToast(`Erreur: ${err.message}`, 'error'); }
+}
+
+async function listValidationReportsUI() {
+  try {
+    const data = await API.listValidationReports();
+    setMigrationOutput(data);
+    showToast(`${(data.reports || []).length} rapport(s) disponible(s)`, 'success');
+  } catch (err) { showToast(`Erreur: ${err.message}`, 'error'); }
+}
+
+function downloadChecksumReportUI() {
+  const a = document.createElement('a');
+  a.href = '/api/storage/checksums/report.md';
+  a.download = `checksum-report-${new Date().toISOString().slice(0, 10)}.md`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  showToast('Rapport Markdown telecharge', 'success');
 }
 
 function storageRiskConfirmation() {

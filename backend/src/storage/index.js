@@ -8,6 +8,7 @@ const hybridStore = require('./hybridStore');
 const { getSqliteStatus, resolveDbPath } = require('./sqlite');
 const { COLLECTIONS } = require('./schema');
 const events = require('./storageEvents');
+const validationReports = require('./validationReports');
 
 function mode() {
   const value = String(process.env.STORAGE_MODE || 'json').toLowerCase();
@@ -108,6 +109,7 @@ function getStorageStatus() {
     lastSyncCheckAt: new Date().toISOString(),
     lastMigrationAt: events.latestEventAt(['migration_completed']),
     lastValidationAt,
+    lastValidationReport: (() => { try { const r = validationReports.listValidationReports(); return r[0] || null; } catch { return null; } })(),
     warnings,
     admin: {
       enabled: String(process.env.STORAGE_ADMIN_ENABLED || 'true').toLowerCase() === 'true',

@@ -85,6 +85,10 @@ const API = {
   exportSqliteDump: () => apiFetch('/storage/sqlite/export-dump', { method: 'POST', body: JSON.stringify({}) }),
   runStorageMigration: (body) => apiFetch('/storage/migration/run', { method: 'POST', body: JSON.stringify(body) }),
   rollbackStorage: (body) => apiFetch('/storage/rollback', { method: 'POST', body: JSON.stringify(body) }),
+  getSqliteReadiness: () => apiFetch('/storage/sqlite/readiness'),
+  getDesyncAlerts: () => apiFetch('/storage/checksums/desync-alerts'),
+  compareIdsAllCollections: () => apiFetch('/storage/compare-ids'),
+  listValidationReports: () => apiFetch('/storage/validation-reports'),
 
   // Schedules
   getSchedules: () => apiFetch('/schedules'),
