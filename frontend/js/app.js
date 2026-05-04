@@ -197,7 +197,9 @@ async function doLogin() {
   try {
     const data = await API.login(username, password);
     window.AuthToken.set(data.token);
+    // In cookie mode, refreshToken is in HttpOnly cookie — no need to store in localStorage
     if (data.refreshToken) window.AuthToken.setRefresh(data.refreshToken);
+    else window.AuthToken.clearRefresh(); // cookie mode: clear any stale localStorage token
     state.auth.user = data.user;
     updateAuthUI();
     startSessionTimer();
@@ -1002,10 +1004,33 @@ async function deleteWorkflow(id) {
 }
 
 // ── Settings View ────────────────────────────────────────────────────────────
+async function loadSecurityConfig() {
+  const container = qs('#security-config-content');
+  if (!container) return;
+  try {
+    const cfg = await API.getSecurityConfig();
+    const row = (label, value, ok) => `
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border)">
+        <span style="font-size:13px;color:var(--text2)">${label}</span>
+        <span style="font-weight:600;color:${ok === true ? 'var(--green)' : ok === false ? 'var(--text3)' : 'var(--text)'}">${value}</span>
+      </div>`;
+    container.innerHTML =
+      row('Mode authentification', state.auth.mode === 'multi' ? '<span class="badge badge-completed">multi</span>' : '<span class="badge badge-pending">single</span>') +
+      row('Refresh token HttpOnly cookie', cfg.cookieMode ? '✅ Actif' : '○ Désactivé', cfg.cookieMode) +
+      row('Protection CSRF', cfg.csrfProtection ? '✅ Actif' : '○ Désactivé', cfg.csrfProtection) +
+      row('Blacklist access tokens', cfg.blacklistEnabled ? '✅ Actif' : '○ Désactivé', cfg.blacklistEnabled) +
+      row('Durée access token', `${cfg.accessTokenTtl}s (${Math.round(cfg.accessTokenTtl / 60)} min)`) +
+      row('Rate limit login', `${cfg.loginRateLimitMax} req / ${Math.round(cfg.loginRateLimitWindowMs / 60000)} min`);
+  } catch {
+    if (container) container.innerHTML = '<div class="text-muted text-sm">Non disponible (mode single)</div>';
+  }
+}
+
 async function loadSettingsView() {
   try {
     const [settings, status] = await Promise.all([API.getSettings(), API.getStatus()]);
     state.settings = settings;
+    loadSecurityConfig();
 
     const provider = settings.currentProvider || 'mock';
     qs('#setting-provider').value = provider;

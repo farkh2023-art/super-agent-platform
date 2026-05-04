@@ -13,7 +13,8 @@ function base64url(buf) {
 function sign(payload, expiresInSeconds = 86400) {
   const header = base64url(Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })));
   const now = Math.floor(Date.now() / 1000);
-  const body = base64url(Buffer.from(JSON.stringify({ ...payload, iat: now, exp: now + expiresInSeconds })));
+  const jti = crypto.randomUUID();
+  const body = base64url(Buffer.from(JSON.stringify({ ...payload, iat: now, exp: now + expiresInSeconds, jti })));
   const sig = base64url(crypto.createHmac('sha256', secret()).update(`${header}.${body}`).digest());
   return `${header}.${body}.${sig}`;
 }

@@ -2,6 +2,7 @@
 
 const jwt = require('../auth/jwt');
 const { getAuthMode } = require('../auth/authConfig');
+const blacklist = require('../auth/tokenBlacklist');
 
 const PUBLIC_PATHS = ['/auth/login', '/auth/mode', '/auth/refresh', '/health', '/health/detailed'];
 
@@ -18,7 +19,9 @@ function requireAuth(req, res, next) {
 
   try {
     const payload = jwt.verify(token);
-    // Check if user account is disabled
+    if (blacklist.isBlacklisted(payload.jti)) {
+      return res.status(401).json({ error: 'Token revoked' });
+    }
     const users = require('../auth/users');
     const liveUser = users.findById(payload.id || payload.userId);
     if (liveUser && liveUser.disabled) {

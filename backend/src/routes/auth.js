@@ -6,8 +6,11 @@ const jwt = require('../auth/jwt');
 const users = require('../auth/users');
 const workspaces = require('../auth/workspaces');
 const refreshTokens = require('../auth/refreshTokens');
+const blacklist = require('../auth/tokenBlacklist');
+const { setRefreshCookie, clearRefreshCookie, setCsrfCookie, clearCsrfCookie, parseCookies } = require('../auth/cookieHelper');
 const { getAuthMode, setAuthMode } = require('../auth/authConfig');
 const { requireAuth, requireRole } = require('../middleware/requireAuth');
+const { loginRateLimit, refreshRateLimit } = require('../middleware/authRateLimiter');
 const { listAuditLog } = require('../middleware/auditLog');
 
 const router = express.Router();
@@ -16,14 +19,33 @@ const CONFIRMATION = 'I_UNDERSTAND_AUTH_RISK';
 function accessTtl() {
   return parseInt(process.env.ACCESS_TOKEN_TTL_SECONDS || '900', 10);
 }
+function cookieMode() {
+  return process.env.REFRESH_TOKEN_COOKIE === 'true';
+}
+function csrfEnabled() {
+  return process.env.CSRF_PROTECTION === 'true';
+}
 
 // GET /api/auth/mode — always public
 router.get('/mode', (req, res) => {
   res.json({ mode: getAuthMode() });
 });
 
-// POST /api/auth/login — always public
-router.post('/login', (req, res) => {
+// GET /api/auth/security-config — public, returns feature flags
+router.get('/security-config', (req, res) => {
+  res.json({
+    cookieMode: cookieMode(),
+    csrfProtection: csrfEnabled(),
+    accessTokenTtl: accessTtl(),
+    loginRateLimitMax: parseInt(process.env.LOGIN_RATE_LIMIT_MAX || '10', 10),
+    refreshRateLimitMax: parseInt(process.env.REFRESH_RATE_LIMIT_MAX || '30', 10),
+    loginRateLimitWindowMs: parseInt(process.env.LOGIN_RATE_LIMIT_WINDOW_MS || '900000', 10),
+    blacklistEnabled: true,
+  });
+});
+
+// POST /api/auth/login — public, rate-limited
+router.post('/login', loginRateLimit, (req, res) => {
   if (getAuthMode() !== 'multi') {
     return res.status(400).json({ error: 'Auth mode is single-user — login not required' });
   }
@@ -36,16 +58,26 @@ router.post('/login', (req, res) => {
 
   const token = jwt.sign({ id: user.id, username: user.username, role: user.role, workspaceId: user.workspaceId }, accessTtl());
   const refreshToken = refreshTokens.issueRefreshToken(user.id);
+
+  if (cookieMode()) {
+    setRefreshCookie(res, refreshToken);
+    if (csrfEnabled()) {
+      const csrfToken = crypto.randomBytes(16).toString('hex');
+      setCsrfCookie(res, csrfToken);
+    }
+    return res.json({ token, expiresIn: accessTtl(), user });
+  }
   res.json({ token, refreshToken, expiresIn: accessTtl(), user });
 });
 
-// POST /api/auth/refresh — public (no access token needed)
-router.post('/refresh', (req, res) => {
+// POST /api/auth/refresh — public, rate-limited; reads cookie OR body
+router.post('/refresh', refreshRateLimit, (req, res) => {
   if (getAuthMode() !== 'multi') {
     return res.status(400).json({ error: 'Refresh tokens are only used in multi-user mode' });
   }
-  const { refreshToken } = req.body || {};
-  if (!refreshToken) return res.status(400).json({ error: 'refreshToken required' });
+  const cookies = parseCookies(req);
+  const refreshToken = cookies.sap_refresh || (req.body || {}).refreshToken;
+  if (!refreshToken) return res.status(400).json({ error: 'refreshToken required (body or cookie)' });
 
   const entry = refreshTokens.verifyRefreshToken(refreshToken);
   if (!entry) return res.status(401).json({ error: 'Invalid or expired refresh token' });
@@ -58,10 +90,19 @@ router.post('/refresh', (req, res) => {
   refreshTokens.revokeRefreshToken(refreshToken);
   const newRefreshToken = refreshTokens.issueRefreshToken(user.id);
   const newToken = jwt.sign({ id: user.id, username: user.username, role: user.role, workspaceId: user.workspaceId }, accessTtl());
+
+  if (cookieMode()) {
+    setRefreshCookie(res, newRefreshToken);
+    if (csrfEnabled()) {
+      const csrfToken = crypto.randomBytes(16).toString('hex');
+      setCsrfCookie(res, csrfToken);
+    }
+    return res.json({ token: newToken, expiresIn: accessTtl() });
+  }
   res.json({ token: newToken, refreshToken: newRefreshToken, expiresIn: accessTtl() });
 });
 
-// POST /api/auth/register — admin only (or first user becomes admin)
+// POST /api/auth/register — admin only
 router.post('/register', requireAuth, (req, res) => {
   const isFirstUser = users.count() === 0;
   if (!isFirstUser && (!req.user || req.user.role !== 'admin')) {
@@ -91,7 +132,7 @@ router.get('/users', requireAuth, requireRole('admin'), (req, res) => {
   res.json({ users: users.listUsers() });
 });
 
-// PUT /api/auth/users/:id — admin only (role, disabled, workspaceId)
+// PUT /api/auth/users/:id — admin only
 router.put('/users/:id', requireAuth, requireRole('admin'), (req, res) => {
   const { id } = req.params;
   if (req.user && (req.user.id === id || req.user.userId === id)) {
@@ -100,12 +141,10 @@ router.put('/users/:id', requireAuth, requireRole('admin'), (req, res) => {
   const { role, disabled, workspaceId } = req.body || {};
   try {
     const updated = users.updateUser(id, { role, disabled, workspaceId });
-    // If disabling, revoke all refresh tokens
     if (disabled) refreshTokens.revokeAllForUser(id);
     res.json({ user: updated });
   } catch (err) {
-    const status = err.code === 'NOT_FOUND' ? 404 : 400;
-    res.status(status).json({ error: err.message });
+    res.status(err.code === 'NOT_FOUND' ? 404 : 400).json({ error: err.message });
   }
 });
 
@@ -120,8 +159,7 @@ router.delete('/users/:id', requireAuth, requireRole('admin'), (req, res) => {
     users.deleteUser(id);
     res.json({ success: true });
   } catch (err) {
-    const status = err.code === 'NOT_FOUND' ? 404 : 400;
-    res.status(status).json({ error: err.message });
+    res.status(err.code === 'NOT_FOUND' ? 404 : 400).json({ error: err.message });
   }
 });
 
@@ -143,10 +181,20 @@ router.post('/set-mode', requireAuth, requireRole('admin'), (req, res) => {
   }
 });
 
-// POST /api/auth/logout — revokes refresh token server-side
+// POST /api/auth/logout — revokes refresh token + blacklists access token
 router.post('/logout', requireAuth, (req, res) => {
-  const { refreshToken } = req.body || {};
-  if (refreshToken) refreshTokens.revokeRefreshToken(refreshToken);
+  // Blacklist the current access token's jti
+  if (req.user?.jti) blacklist.blacklistToken(req.user.jti);
+
+  // Revoke refresh token: cookie or body
+  const cookies = parseCookies(req);
+  const rt = cookies.sap_refresh || (req.body || {}).refreshToken;
+  if (rt) refreshTokens.revokeRefreshToken(rt);
+
+  if (cookieMode()) {
+    clearRefreshCookie(res);
+    if (csrfEnabled()) clearCsrfCookie(res);
+  }
   res.json({ success: true });
 });
 

@@ -37,9 +37,23 @@ setBroadcast(broadcast);
 
 // ── Middleware ────────────────────────────────────────────────────────────────
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3000';
-app.use(cors({ origin: [FRONTEND_URL, 'http://localhost:3000', 'null', '*'] }));
+app.use(cors({ origin: [FRONTEND_URL, 'http://localhost:3000', 'null', '*'], credentials: true }));
 app.use(express.json({ limit: '5mb' }));
 app.use(express.urlencoded({ extended: false }));
+
+// Mini cookie parser — no external dependency
+app.use((req, _res, next) => {
+  req.cookies = {};
+  const header = req.headers.cookie || '';
+  header.split(';').forEach((part) => {
+    const eq = part.indexOf('=');
+    if (eq === -1) return;
+    const key = part.slice(0, eq).trim();
+    try { req.cookies[key] = decodeURIComponent(part.slice(eq + 1).trim()); }
+    catch { req.cookies[key] = part.slice(eq + 1).trim(); }
+  });
+  next();
+});
 
 // Serve frontend static files
 const FRONTEND_DIR = path.resolve(__dirname, '../../frontend');
@@ -48,9 +62,10 @@ app.use(express.static(FRONTEND_DIR));
 // ── API Auth (optional – enabled when API_KEY env var is set) ─────────────────
 app.use('/api', require('./middleware/auth'));
 
-// ── Audit log + rate limiter run early (active only in multi-user mode) ───────
+// ── Audit log + rate limiters (active only in multi-user mode) ───────────────
 app.use('/api', require('./middleware/auditLog').auditLog);
 app.use('/api', require('./middleware/rateLimiter').rateLimiter);
+app.use('/api', require('./middleware/csrfProtection').csrfProtection);
 
 // ── Auth routes (always public for /login and /mode) ─────────────────────────
 app.use('/api/auth', require('./routes/auth'));

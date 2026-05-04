@@ -15,10 +15,23 @@ window.AuthToken = AuthToken;
 // Prevent concurrent silent refreshes
 let _refreshing = false;
 
+// Read a cookie value (for CSRF token) — never logs
+function readCookie(name) {
+  const match = document.cookie.match(new RegExp(`(?:^|; )${name}=([^;]*)`));
+  return match ? decodeURIComponent(match[1]) : '';
+}
+
+const MUTATING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
+
 async function apiFetch(path, options = {}) {
   const token = AuthToken.get();
   const headers = { 'Content-Type': 'application/json', ...options.headers };
   if (token) headers['Authorization'] = `Bearer ${token}`;
+  // Inject CSRF token for mutating requests (when server has CSRF_PROTECTION=true)
+  if (MUTATING_METHODS.has(options.method || 'GET')) {
+    const csrf = readCookie('sap_csrf');
+    if (csrf) headers['X-CSRF-Token'] = csrf;
+  }
 
   const res = await fetch(`${API_BASE}${path}`, { ...options, headers });
 
@@ -187,6 +200,7 @@ const API = {
 
   // ── Auth (Phase 6A/B/C) ──────────────────────────────────────────────────
   getAuthMode: () => apiFetch('/auth/mode'),
+  getSecurityConfig: () => apiFetch('/auth/security-config'),
   login: (username, password) => apiFetch('/auth/login', { method: 'POST', body: JSON.stringify({ username, password }) }),
   refresh: (refreshToken) => apiFetch('/auth/refresh', { method: 'POST', body: JSON.stringify({ refreshToken }) }),
   me: () => apiFetch('/auth/me'),
