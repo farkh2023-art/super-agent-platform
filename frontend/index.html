@@ -92,6 +92,14 @@
               <div class="stat-value" id="stat-artifacts">–</div>
               <div class="stat-label">Artefacts générés</div>
             </div>
+            <div class="stat-card" style="border-color:var(--accent2,#a78bfa)">
+              <div class="stat-value" id="stat-workflows">–</div>
+              <div class="stat-label">Workflows</div>
+            </div>
+            <div class="stat-card" style="border-color:var(--green)">
+              <div class="stat-value" id="stat-success-rate">–</div>
+              <div class="stat-label">Taux de réussite</div>
+            </div>
           </div>
 
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
@@ -122,6 +130,37 @@
                   <div class="empty-icon">📭</div>
                   <p>Chargement...</p>
                 </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- System Status -->
+          <div class="card" style="margin-top:20px" id="system-status-card">
+            <div class="card-title">🖥️ État du système</div>
+            <div id="system-status-content" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px">
+              <div style="background:var(--bg3);border-radius:8px;padding:12px">
+                <div style="font-size:11px;color:var(--text3);margin-bottom:4px">Fournisseur IA</div>
+                <div style="font-weight:600;font-size:14px" id="sys-provider">–</div>
+              </div>
+              <div style="background:var(--bg3);border-radius:8px;padding:12px">
+                <div style="font-size:11px;color:var(--text3);margin-bottom:4px">Concurrence</div>
+                <div style="font-weight:600;font-size:14px" id="sys-concurrency">–</div>
+              </div>
+              <div style="background:var(--bg3);border-radius:8px;padding:12px">
+                <div style="font-size:11px;color:var(--text3);margin-bottom:4px">Logs aujourd'hui</div>
+                <div style="font-weight:600;font-size:14px" id="sys-logs">–</div>
+              </div>
+              <div style="background:var(--bg3);border-radius:8px;padding:12px">
+                <div style="font-size:11px;color:var(--text3);margin-bottom:4px">Uptime</div>
+                <div style="font-weight:600;font-size:14px" id="sys-uptime">–</div>
+              </div>
+              <div style="background:var(--bg3);border-radius:8px;padding:12px">
+                <div style="font-size:11px;color:var(--text3);margin-bottom:4px">Dernière exécution</div>
+                <div style="font-size:12px;color:var(--text2)" id="sys-last-exec">–</div>
+              </div>
+              <div style="background:var(--bg3);border-radius:8px;padding:12px">
+                <div style="font-size:11px;color:var(--text3);margin-bottom:4px">Workflow runs</div>
+                <div style="font-weight:600;font-size:14px" id="sys-wf-runs">–</div>
               </div>
             </div>
           </div>
@@ -332,7 +371,8 @@
               <div class="card-title">🔧 Configuration IA</div>
               <div class="form-group">
                 <label class="form-label">Fournisseur IA</label>
-                <select id="setting-provider" class="form-select">
+                <select id="setting-provider" class="form-select"
+                        onchange="const c=document.getElementById('ollama-diag-card');if(c)c.style.display=this.value==='ollama'?'block':'none'">
                   <option value="mock">🎭 Mock Mode (sans clé API)</option>
                   <option value="claude">🟣 Claude (Anthropic)</option>
                   <option value="openai">🟢 OpenAI</option>
@@ -363,7 +403,19 @@
                 <label class="form-label">URL Ollama</label>
                 <input id="setting-ollama-url" class="form-input" placeholder="http://localhost:11434">
               </div>
-              <button class="btn btn-primary" onclick="saveSettings()">💾 Sauvegarder</button>
+              <div style="display:flex;gap:8px;flex-wrap:wrap">
+                <button class="btn btn-primary" onclick="saveSettings()">💾 Sauvegarder</button>
+                <button class="btn btn-secondary" onclick="testProvider()">⚡ Tester la connexion</button>
+              </div>
+              <div id="provider-test-result" style="margin-top:10px;font-size:12px;display:none"></div>
+            </div>
+
+            <!-- Ollama Diagnostic -->
+            <div class="card" id="ollama-diag-card" style="display:none">
+              <div class="card-title">🦙 Diagnostic Ollama</div>
+              <div id="ollama-diag-content">
+                <button class="btn btn-secondary btn-sm" onclick="loadOllamaDiag()">🔍 Analyser</button>
+              </div>
             </div>
 
             <!-- Status -->

@@ -44,10 +44,26 @@ async function loadDashboard() {
     ]);
     state.executions = execData.executions;
 
-    qs('#stat-agents').textContent = stats.agents.total;
-    qs('#stat-executions').textContent = stats.executions.total;
-    qs('#stat-running').textContent = stats.executions.running;
-    qs('#stat-artifacts').textContent = stats.artifacts.total;
+    // Stat cards
+    qs('#stat-agents').textContent       = stats.agents.total;
+    qs('#stat-executions').textContent   = stats.executions.total;
+    qs('#stat-running').textContent      = stats.executions.running;
+    qs('#stat-artifacts').textContent    = stats.artifacts.total;
+    qs('#stat-workflows').textContent    = stats.workflows.total;
+    qs('#stat-success-rate').textContent = stats.executions.successRate != null
+      ? `${stats.executions.successRate}%` : '–';
+
+    // System status
+    const uptime = stats.uptime;
+    const h = Math.floor(uptime / 3600), m = Math.floor((uptime % 3600) / 60), s = uptime % 60;
+    qs('#sys-provider').textContent     = stats.provider;
+    qs('#sys-concurrency').textContent  = `${stats.concurrency.active}/${stats.concurrency.max} actifs`;
+    qs('#sys-logs').textContent         = stats.logsToday;
+    qs('#sys-uptime').textContent       = h > 0 ? `${h}h ${m}m` : `${m}m ${s}s`;
+    qs('#sys-wf-runs').textContent      = stats.workflowRuns.total;
+    qs('#sys-last-exec').textContent    = stats.lastExecution
+      ? `${escHtml(stats.lastExecution.task)} (${stats.lastExecution.status})`
+      : 'Aucune';
 
     renderRecentExecutions();
   } catch (err) {
@@ -598,7 +614,11 @@ async function loadSettingsView() {
     const [settings, status] = await Promise.all([API.getSettings(), API.getStatus()]);
     state.settings = settings;
 
-    qs('#setting-provider').value = settings.currentProvider || 'mock';
+    const provider = settings.currentProvider || 'mock';
+    qs('#setting-provider').value = provider;
+    // Show Ollama diagnostic card only when Ollama is selected
+    const ollamaCard = qs('#ollama-diag-card');
+    if (ollamaCard) ollamaCard.style.display = provider === 'ollama' ? 'block' : 'none';
     qs('#setting-claude-model').value = settings.claudeModel || 'claude-sonnet-4-6';
     qs('#setting-openai-model').value = settings.openaiModel || 'gpt-4o';
     qs('#setting-ollama-model').value = settings.ollamaModel || 'llama3.2';
@@ -613,6 +633,51 @@ async function loadSettingsView() {
     updateProviderBadge(status.provider);
   } catch (err) {
     console.error('Settings error:', err);
+  }
+}
+
+async function testProvider() {
+  const resultEl = qs('#provider-test-result');
+  resultEl.style.display = 'block';
+  resultEl.style.color = 'var(--text2)';
+  resultEl.textContent = 'Test en cours...';
+  try {
+    const data = await API.testProvider();
+    resultEl.style.color = data.success ? 'var(--green)' : 'var(--red)';
+    resultEl.textContent = data.success
+      ? `✅ ${data.message}${data.preview ? ' – "' + escHtml(data.preview.substring(0, 60)) + '..."' : ''}`
+      : `❌ ${escHtml(data.error)}`;
+  } catch (err) {
+    resultEl.style.color = 'var(--red)';
+    resultEl.textContent = `❌ ${escHtml(err.message)}`;
+  }
+}
+
+async function loadOllamaDiag() {
+  const container = qs('#ollama-diag-content');
+  container.innerHTML = '<div class="text-muted text-sm">Diagnostic en cours...</div>';
+  try {
+    const d = await API.getOllamaHealth();
+    const icon = d.reachable ? '✅' : '❌';
+    const modelsHtml = d.models.length
+      ? d.models.map((m) => `<span class="badge badge-pending" style="margin:2px">${escHtml(m)}</span>`).join('')
+      : '<span class="text-muted text-sm">Aucun modèle installé</span>';
+
+    container.innerHTML = `
+      <div style="display:flex;flex-direction:column;gap:8px;font-size:13px">
+        <div><strong>Statut :</strong> ${icon} ${d.reachable ? 'Accessible' : 'Inaccessible'}</div>
+        <div><strong>URL :</strong> <code>${escHtml(d.url)}</code></div>
+        <div><strong>Modèle configuré :</strong> <code>${escHtml(d.configuredModel)}</code>
+          ${d.modelAvailable ? '✅ disponible' : '⚠️ absent'}</div>
+        ${d.error ? `<div style="color:var(--red)">⚠️ ${escHtml(d.error)}</div>` : ''}
+        ${d.hint ? `<div style="color:var(--yellow)">💡 ${escHtml(d.hint)}</div>` : ''}
+        ${d.pullCommand ? `<div><strong>Commande :</strong> <code>${escHtml(d.pullCommand)}</code></div>` : ''}
+        <div><strong>Modèles installés :</strong><div style="margin-top:4px">${modelsHtml}</div></div>
+        <button class="btn btn-secondary btn-sm" onclick="loadOllamaDiag()" style="align-self:flex-start;margin-top:4px">🔄 Rafraîchir</button>
+      </div>
+    `;
+  } catch (err) {
+    container.innerHTML = `<div class="text-red">Erreur: ${escHtml(err.message)}</div>`;
   }
 }
 

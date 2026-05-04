@@ -29,7 +29,8 @@
 ### Clés API
 
 - Les clés API sont **exclusivement lues depuis les variables d'environnement** (`process.env`)
-- Elles ne transitent **jamais** par l'API REST (les routes `GET /api/settings` masquent les clés)
+- Elles ne transitent **jamais** par l'API REST (`GET /api/settings` et `GET /api/settings/status` masquent les clés)
+- `POST /api/settings/test-provider` ne retourne jamais la clé, seulement un booléen de succès
 - Le frontend n'a **jamais** accès aux clés — elles restent dans le processus Node.js backend
 
 ### Fichier `backend/src/routes/settings.js`
@@ -47,12 +48,34 @@ delete settings.openaiApiKey;
 
 ---
 
+## Sauvegarde ZIP (`GET /api/backup/download`)
+
+La sauvegarde ZIP exclut systématiquement les secrets :
+
+```js
+const SENSITIVE_FIELDS = ['anthropicApiKey', 'openaiApiKey', 'password', 'token', 'secret'];
+function sanitize(obj) {
+  const copy = { ...obj };
+  for (const field of SENSITIVE_FIELDS) delete copy[field];
+  return copy;
+}
+```
+
+- Le `settings.json` dans le ZIP est **sanitisé** avant inclusion
+- Les collections de données (tasks, executions, artifacts, workflows) ne contiennent pas de clés API
+- Les logs JSONL (`data/logs/`) contiennent uniquement des messages de log sans secrets
+- Le ZIP inclut un `manifest.json` avec un avertissement explicite : *"No API keys are stored in this backup"*
+
+---
+
 ## Validation des entrées
 
 | Couche | Protection |
 |--------|-----------|
 | `POST /api/tasks` | Validation `task` requis, non vide, type string |
 | `POST /api/workflows` | Validation `name` + `steps` non vides |
+| `POST /api/workflows/import` | Validation structure JSON : `name` + `steps` requis |
+| `GET /api/search` | Paramètre `q` requis et non vide |
 | Frontend | `escHtml()` sur toutes les données affichées (prévention XSS) |
 | Providers IA | Les clés API sont validées avant appel, erreurs propagées proprement |
 
@@ -83,6 +106,21 @@ function escHtml(str) {
 
 ---
 
+## Protection contre les abus
+
+### Limite de concurrence (`MAX_CONCURRENT_EXECUTIONS`)
+- Par défaut : 3 exécutions simultanées maximum
+- Les exécutions supplémentaires sont **mises en file d'attente** (jamais rejetées)
+- Configurable via `.env` : `MAX_CONCURRENT_EXECUTIONS=3`
+- Prévient la saturation des ressources serveur et les abus de rate limit API
+
+### Import de workflows
+- L'import JSON valide la structure avant création (nom + étapes requis)
+- De nouveaux IDs sont assignés à l'import (aucune collision avec les workflows existants)
+- Les agentIds importés sont acceptés tels quels ; la validation a lieu à l'exécution
+
+---
+
 ## Dépendances
 
 Les dépendances sont auditées régulièrement :
@@ -93,12 +131,14 @@ npm audit                  # Vérifier les CVE
 npm audit fix              # Corriger les CVE automatiquement
 ```
 
-Dépendances de production minimales (sans bloat) :
+Dépendances de production (sans bloat) :
 - `express` — serveur web
 - `ws` — WebSocket
 - `uuid` — génération d'IDs
 - `dotenv` — chargement `.env`
 - `cors` — headers CORS
+- `pdfkit` — export PDF des artefacts
+- `archiver` — sauvegarde ZIP
 - `@anthropic-ai/sdk` — Claude (optionnel)
 - `openai` — OpenAI (optionnel)
 
@@ -118,3 +158,5 @@ Si vous découvrez une vulnérabilité de sécurité, **ne créez pas d'issue pu
 - [ ] `data/` absent du dépôt git
 - [ ] Variables d'environnement de production configurées séparément
 - [ ] CORS restreint à l'origine frontend uniquement (variable `FRONTEND_URL`)
+- [ ] `MAX_CONCURRENT_EXECUTIONS` adapté à la capacité serveur
+- [ ] Sauvegarde ZIP testée : aucune clé API dans le contenu

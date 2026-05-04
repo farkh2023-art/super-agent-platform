@@ -2,7 +2,7 @@
 
 Plateforme web locale pour gérer et orchestrer 10 agents IA spécialisés.
 
-[![Tests](https://img.shields.io/badge/tests-58%2F58%20✅-brightgreen)]()
+[![Tests](https://img.shields.io/badge/tests-72%2F72%20✅-brightgreen)]()
 [![Mode Mock](https://img.shields.io/badge/mode-mock%20(sans%20clé%20API)-yellow)]()
 [![Node.js](https://img.shields.io/badge/node-%3E%3D22-blue)]()
 
@@ -59,6 +59,10 @@ npm start        # ou: node src/server.js
 | Recherche globale (`GET /api/search?q=...`) | ✅ |
 | Health détaillé (`GET /api/health/detailed`) | ✅ |
 | Sauvegarde ZIP sans secrets (`GET /api/backup/download`) | ✅ |
+| Test connexion provider (`POST /api/settings/test-provider`) | ✅ |
+| Diagnostic Ollama (`GET /api/settings/ollama-health`) | ✅ |
+| Dashboard enrichi (taux de réussite, statut système, concurrence) | ✅ |
+| Erreurs providers enrichies (codes HTTP, messages actionables) | ✅ |
 | Support Claude / OpenAI / Ollama | ✅ |
 | Interface web SPA complète | ✅ |
 | Dépôt git initialisé + `.gitignore` | ✅ |
@@ -157,6 +161,7 @@ Suites :
 - `tests/api.test.js` — API REST end-to-end (18 tests)
 - `tests/dashboard.test.js` — Dashboard stats endpoint (6 tests)
 - `tests/phase2c.test.js` — Santé détaillée, recherche, import/export, backup (16 tests)
+- `tests/phase2d.test.js` — Test provider, Ollama health, dashboard enrichi, audit secrets (14 tests)
 
 ---
 

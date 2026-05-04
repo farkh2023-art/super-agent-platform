@@ -66,6 +66,10 @@ const API = {
   getWorkflowRuns: () => apiFetch('/workflow-runs'),
   getWorkflowRun: (id) => apiFetch(`/workflow-runs/${id}`),
 
+  // Provider test + Ollama health
+  testProvider: () => apiFetch('/settings/test-provider', { method: 'POST' }),
+  getOllamaHealth: () => apiFetch('/settings/ollama-health'),
+
   // Health
   health: () => apiFetch('/health'),
 };
