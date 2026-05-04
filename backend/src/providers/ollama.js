@@ -43,12 +43,51 @@ async function callOllama(systemPrompt, userMessage, options = {}) {
   }
 }
 
-async function diagnoseOllama() {
+async function generateOllamaEmbedding(text, options = {}) {
   const baseUrl = process.env.OLLAMA_BASE_URL || 'http://localhost:11434';
-  const model   = process.env.OLLAMA_MODEL   || 'llama3.2';
+  const model = options.model || process.env.MEMORY_EMBEDDING_MODEL || 'nomic-embed-text';
+  const timeoutMs = options.timeoutMs || parseInt(process.env.MEMORY_EMBEDDING_TIMEOUT_MS || '15000', 10);
 
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 5000);
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const response = await fetch(`${baseUrl}/api/embeddings`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      signal: controller.signal,
+      body: JSON.stringify({ model, prompt: String(text || '') }),
+    });
+    clearTimeout(timer);
+
+    if (!response.ok) {
+      const body = await response.text().catch(() => '');
+      if (response.status === 404) {
+        throw new Error(`Modele d'embedding "${model}" introuvable - lancez: ollama pull ${model}`);
+      }
+      throw new Error(`Ollama embeddings HTTP ${response.status}: ${body || response.statusText}`);
+    }
+
+    const data = await response.json();
+    return data.embedding;
+  } catch (err) {
+    clearTimeout(timer);
+    if (err.name === 'AbortError') {
+      throw new Error(`Ollama embeddings timeout (>${timeoutMs}ms)`);
+    }
+    if (err.message.includes('fetch failed') || err.message.includes('ECONNREFUSED')) {
+      throw new Error(`Ollama inaccessible sur ${baseUrl} - lancez: ollama serve`);
+    }
+    throw err;
+  }
+}
+
+async function diagnoseOllama(options = {}) {
+  const baseUrl = process.env.OLLAMA_BASE_URL || 'http://localhost:11434';
+  const model   = options.model || process.env.OLLAMA_MODEL   || 'llama3.2';
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), options.timeoutMs || 5000);
 
   try {
     const res = await fetch(`${baseUrl}/api/tags`, { signal: controller.signal });
@@ -88,4 +127,4 @@ async function diagnoseOllama() {
   }
 }
 
-module.exports = { callOllama, diagnoseOllama };
+module.exports = { callOllama, diagnoseOllama, generateOllamaEmbedding };

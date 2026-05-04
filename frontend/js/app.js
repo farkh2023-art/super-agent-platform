@@ -931,12 +931,13 @@ async function loadMemoryView(resetPage = false) {
   if (resetPage) state.pages.memory.offset = 0;
   const { offset, limit } = state.pages.memory;
   try {
-    const [statsData, chunksData] = await Promise.all([
+    const [statsData, chunksData, embeddingStatus] = await Promise.all([
       API.getMemoryStats(),
       API.getMemory({ limit, offset }),
+      API.getMemoryEmbeddingStatus().catch(() => null),
     ]);
     state.pages.memory.total = chunksData.total;
-    renderMemoryStats(statsData);
+    renderMemoryStats({ ...statsData, embeddingStatus });
     const countEl = qs('#memory-count');
     if (countEl) countEl.textContent = `${chunksData.total} chunk(s)`;
 
@@ -974,16 +975,22 @@ function renderMemoryStats(s) {
   const c = qs('#memory-stats-content');
   if (!c) return;
   const sources = Object.entries(s.sources || {}).map(([k, v]) => `<span class="badge badge-pending" style="margin:2px">${escHtml(k)}: ${v}</span>`).join('');
+  const e = s.embeddingStatus || s.embeddings || {};
   c.innerHTML = `
     <div style="display:flex;flex-direction:column;gap:6px;font-size:13px">
       <div><strong>Chunks :</strong> ${s.total}</div>
-      <div><strong>Sources :</strong> ${sources || '<em>–</em>'}</div>
-      <div><strong>Embeddings :</strong> ${s.embeddingsEnabled ? `✅ Ollama (${escHtml(s.embeddingModel)})` : '⬜ Keyword search'}</div>
-      ${s.embeddingsEnabled ? `<div><strong>Vectorisés :</strong> ${s.embeddingsCount} / ${s.total}</div>` : ''}
+      <div><strong>Sources :</strong> ${sources || '<em>-</em>'}</div>
+      <div><strong>Embeddings :</strong> ${e.enabled ? '<span class="badge badge-completed">ON</span>' : '<span class="badge badge-pending">OFF</span>'}</div>
+      <div><strong>Provider :</strong> ${escHtml(e.provider || 'ollama')} / ${escHtml(e.model || s.embeddingModel || 'nomic-embed-text')}</div>
+      <div><strong>Vectorises :</strong> ${e.count ?? s.embeddingsCount ?? 0} / ${s.total}</div>
+      ${e.enabled && !e.ollamaReachable ? '<div><span class="badge badge-error">fallback keyword</span></div>' : ''}
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">
+        <button class="btn btn-sm btn-secondary" onclick="reindexEmbeddingsUI()">Reindex embeddings</button>
+        <button class="btn btn-sm btn-danger" onclick="clearEmbeddingsUI()">Clear embeddings</button>
+      </div>
     </div>
   `;
 }
-
 function renderMemoryChunks(chunks) {
   const container = qs('#memory-chunks-list');
   if (!container) return;
@@ -1015,16 +1022,24 @@ async function searchMemoryChunks() {
   if (!q) { showToast('Entrez un terme de recherche', 'error'); return; }
   const container = qs('#memory-search-results');
   if (container) container.innerHTML = '<div class="text-muted text-sm">Recherche...</div>';
+  const mode = qs('#memory-search-mode')?.value || 'keyword';
+  const topK = parseInt(qs('#memory-search-limit')?.value || '5', 10);
   try {
-    const data = await API.searchMemory(q, 5);
+    const data = await API.retrieveMemory({ query: q, topK, mode, useEmbeddings: mode !== 'keyword' });
     if (container) {
-      if (data.total === 0) {
-        container.innerHTML = '<div class="text-muted text-sm">Aucun résultat</div>';
+      if (!data.results.length) {
+        container.innerHTML = '<div class="text-muted text-sm">Aucun resultat</div>';
       } else {
-        container.innerHTML = data.results.map((r) => `
+        const fallback = data.modeUsed !== data.modeRequested ? '<span class="badge badge-error">fallback keyword</span>' : '';
+        container.innerHTML = `<div class="text-sm text-muted mb-8">Mode utilise: <strong>${escHtml(data.modeUsed)}</strong> ${fallback}</div>` + data.results.map((r) => `
           <div style="background:var(--bg3);border-radius:6px;padding:8px;margin-bottom:6px;font-size:12px">
-            <div style="color:var(--accent);font-size:10px;margin-bottom:2px">${escHtml(r.source)}${r.agentId ? ' · ' + escHtml(r.agentId) : ''}</div>
-            <div style="color:var(--text2);font-family:var(--mono)">${escHtml(r.content.substring(0, 200))}${r.content.length > 200 ? '…' : ''}</div>
+            <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:4px">
+              <span class="badge badge-running">score ${Number(r.score || 0).toFixed(3)}</span>
+              ${r.keywordScore !== undefined ? `<span class="badge badge-pending">kw ${Number(r.keywordScore || 0).toFixed(3)}</span>` : ''}
+              ${r.vectorScore !== undefined ? `<span class="badge badge-pending">vec ${Number(r.vectorScore || 0).toFixed(3)}</span>` : ''}
+              <span class="text-muted">${escHtml(r.title || r.source || '')}</span>
+            </div>
+            <div style="color:var(--text2);font-family:var(--mono)">${escHtml((r.excerpt || r.content || '').substring(0, 220))}${(r.excerpt || r.content || '').length > 220 ? '...' : ''}</div>
           </div>
         `).join('');
       }
@@ -1034,6 +1049,35 @@ async function searchMemoryChunks() {
   }
 }
 
+async function reindexEmbeddingsUI() {
+  try {
+    const res = await API.reindexMemoryEmbeddings();
+    showToast(`Embeddings indexes: ${res.indexed}/${res.total}`, 'success');
+    loadMemoryView();
+  } catch (err) { showToast(`Erreur: ${err.message}`, 'error'); }
+}
+
+async function clearEmbeddingsUI() {
+  if (!confirm('Supprimer uniquement les embeddings ?')) return;
+  try {
+    await API.clearMemoryEmbeddings();
+    showToast('Embeddings supprimes', 'success');
+    loadMemoryView();
+  } catch (err) { showToast(`Erreur: ${err.message}`, 'error'); }
+}
+
+async function runMemoryBenchmark() {
+  const out = qs('#memory-benchmark-results');
+  const queries = (qs('#memory-benchmark-queries')?.value || '').split('\n').map((q) => q.trim()).filter(Boolean);
+  if (!queries.length) { showToast('Ajoutez au moins une requete', 'error'); return; }
+  if (out) out.textContent = 'Benchmark...';
+  try {
+    const data = await API.benchmarkMemory({ queries, topK: 5 });
+    if (out) out.innerHTML = data.results.map((r) => `${escHtml(r.query)}: keyword ${r.keyword.latencyMs}ms / vector ${r.vector.latencyMs}ms / hybrid ${r.hybrid.latencyMs}ms (${escHtml(r.hybrid.modeUsed)})`).join('<br>');
+  } catch (err) {
+    if (out) out.innerHTML = `<span class="text-red">${escHtml(err.message)}</span>`;
+  }
+}
 async function addMemoryChunkUI() {
   const content = qs('#memory-content')?.value.trim();
   const source = qs('#memory-source')?.value || 'manual';

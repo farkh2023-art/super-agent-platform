@@ -211,3 +211,35 @@ Se connecter à `ws://localhost:3001/ws` pour recevoir les événements en temps
   "timestamp": "2026-05-04T..."
 }
 ```
+
+---
+
+## Memoire / RAG Phase 4D
+
+### POST /api/memory/retrieve
+Recherche dans la memoire en mode `keyword`, `vector` ou `hybrid`.
+
+```json
+{
+  "query": "workflow phase 4C",
+  "topK": 5,
+  "mode": "hybrid",
+  "types": ["artifact", "manual_note"],
+  "useEmbeddings": true
+}
+```
+
+### GET /api/memory/embeddings/status
+Retourne `enabled`, `provider`, `model`, `count`, `lastReindexAt`, `ollamaReachable`.
+
+### POST /api/memory/embeddings/reindex
+Recalcule les embeddings locaux Ollama pour tous les items memoire.
+
+### POST /api/memory/embeddings/reindex/:id
+Recalcule un seul item memoire.
+
+### DELETE /api/memory/embeddings
+Supprime les embeddings sans supprimer les items memoire.
+
+### POST /api/memory/benchmark
+Compare la latence et le nombre de resultats pour `keyword`, `vector` et `hybrid`.

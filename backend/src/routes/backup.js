@@ -11,6 +11,7 @@ const router = express.Router();
 // Fields to strip from settings to prevent secret leakage
 const { computeMetrics } = require('./metrics');
 const { listChunks } = require('../memory/retriever');
+const embeddingStore = require('../memory/embeddingStore');
 
 const SENSITIVE_FIELDS = ['anthropicApiKey', 'openaiApiKey', 'password', 'token', 'secret'];
 
@@ -45,9 +46,11 @@ router.get('/download', (req, res) => {
     version: '1.0.0',
     createdAt: new Date().toISOString(),
     note: 'No API keys are stored in this backup.',
+    embeddingsIncluded: false,
     collections: ['tasks', 'executions', 'artifacts', 'workflows', 'workflow_runs', 'schedules', 'memory', 'metrics'],
   };
   archive.append(Buffer.from(JSON.stringify(manifest, null, 2)), { name: 'manifest.json' });
+  archive.append(Buffer.from('false'), { name: 'embeddingsIncluded_false.txt' });
 
   // Collections — read via storage to get live data, sanitize settings
   const collections = ['tasks', 'executions', 'artifacts', 'workflows', 'workflow_runs', 'schedules'];
@@ -63,6 +66,8 @@ router.get('/download', (req, res) => {
   // Memory chunks (strip embeddings – large float arrays; content already sanitized at index time)
   const memoryChunks = listChunks().map(({ embedding, ...c }) => c);
   archive.append(Buffer.from(JSON.stringify(memoryChunks, null, 2)), { name: 'memory.json' });
+  const embeddingMetadata = { ...embeddingStore.readStore().metadata, embeddingsIncluded: false };
+  archive.append(Buffer.from(JSON.stringify(embeddingMetadata, null, 2)), { name: 'memory_embeddings_metadata.json' });
 
   // Metrics snapshot (computed, no secrets)
   const metrics = computeMetrics();

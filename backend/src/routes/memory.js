@@ -2,13 +2,15 @@
 
 const express = require('express');
 const storage = require('../storage');
-const { addChunk, search, listChunks, removeChunk, clearMemory, stats } = require('../memory/retriever');
+const { addChunk, search, retrieve, listChunks, removeChunk, clearMemory, stats, reindexEmbeddings } = require('../memory/retriever');
+const { getEmbeddingStatus } = require('../memory/embeddings');
+const embeddingStore = require('../memory/embeddingStore');
 
 const router = express.Router();
 
 // GET /api/memory/stats
-router.get('/stats', (req, res) => {
-  res.json(stats());
+router.get('/stats', async (req, res) => {
+  res.json(await stats());
 });
 
 // GET /api/memory/search?q=...&limit=5
@@ -18,12 +20,83 @@ router.get('/search', async (req, res) => {
   const limit = parseInt(req.query.limit || '5', 10);
   try {
     const results = await search(q.trim(), limit);
-    // Strip embeddings from response (large float arrays)
     const sanitized = results.map(({ embedding, ...c }) => c);
     res.json({ results: sanitized, total: sanitized.length });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
+});
+
+// POST /api/memory/retrieve
+router.post('/retrieve', async (req, res) => {
+  const { query, topK = 5, mode = 'keyword', types, useEmbeddings } = req.body || {};
+  if (!query || typeof query !== 'string' || !query.trim()) {
+    return res.status(400).json({ error: 'Le champ "query" est requis' });
+  }
+  try {
+    const data = await retrieve(query.trim(), { topK, mode, types, useEmbeddings });
+    res.json(data);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.get('/embeddings/status', async (req, res) => {
+  res.json(await getEmbeddingStatus());
+});
+
+router.post('/embeddings/reindex', async (req, res) => {
+  try {
+    const result = await reindexEmbeddings();
+    res.json({ message: 'Embeddings reindexed', ...result });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+router.post('/embeddings/reindex/:id', async (req, res) => {
+  try {
+    const result = await reindexEmbeddings(req.params.id);
+    res.json({ message: 'Embedding reindexed', ...result });
+  } catch (err) {
+    res.status(err.statusCode || 400).json({ error: err.message });
+  }
+});
+
+router.delete('/embeddings', (req, res) => {
+  embeddingStore.clearEmbeddings();
+  res.json({ message: 'Embeddings effaces' });
+});
+
+router.post('/benchmark', async (req, res) => {
+  const queries = Array.isArray(req.body?.queries) ? req.body.queries.filter((q) => typeof q === 'string' && q.trim()) : [];
+  const topK = req.body?.topK || 5;
+  if (queries.length === 0) return res.status(400).json({ error: 'Le champ "queries" doit etre un tableau non vide' });
+
+  const results = [];
+  for (const query of queries) {
+    const row = { query };
+    for (const mode of ['keyword', 'vector', 'hybrid']) {
+      const start = Date.now();
+      const data = await retrieve(query, { topK, mode, useEmbeddings: mode !== 'keyword' });
+      row[mode] = {
+        count: data.results.length,
+        latencyMs: Date.now() - start,
+        available: mode === 'keyword' ? true : data.embeddingsAvailable,
+        modeUsed: data.modeUsed,
+      };
+    }
+    results.push(row);
+  }
+  const hybridUsed = results.filter((r) => r.hybrid.modeUsed === 'hybrid').length;
+  res.json({
+    queries,
+    results,
+    summary: {
+      bestMode: hybridUsed > 0 ? 'hybrid' : 'keyword',
+      embeddingsAvailable: results.some((r) => r.hybrid.available || r.vector.available),
+    },
+  });
 });
 
 // GET /api/memory/export

@@ -601,13 +601,36 @@
               <div id="memory-stats-content"><div class="text-muted text-sm">Chargement...</div></div>
             </div>
             <div class="card">
-              <div class="card-title">🔍 Recherche RAG</div>
+              <div class="card-title">Recherche RAG</div>
               <div style="display:flex;gap:8px;margin-bottom:12px">
-                <input id="memory-search-input" class="form-input flex-1" placeholder="Rechercher dans la mémoire..."
-                       onkeydown="if(event.key==='Enter') searchMemoryChunks()">
-                <button class="btn btn-primary" onclick="searchMemoryChunks()">🔍</button>
+                <select id="memory-search-mode" class="form-select" style="width:150px">
+                  <option value="keyword">keyword</option>
+                  <option value="vector">vector</option>
+                  <option value="hybrid" selected>hybrid</option>
+                </select>
+                <select id="memory-search-limit" class="form-select" style="width:90px">
+                  <option value="3">top 3</option>
+                  <option value="5" selected>top 5</option>
+                  <option value="10">top 10</option>
+                </select>
               </div>
-              <div id="memory-search-results" style="max-height:200px;overflow-y:auto"></div>
+              <div style="display:flex;gap:8px;margin-bottom:12px">
+                <input id="memory-search-input" class="form-input flex-1" placeholder="Rechercher dans la memoire..."
+                       onkeydown="if(event.key==='Enter') searchMemoryChunks()">
+                <button class="btn btn-primary" onclick="searchMemoryChunks()">Rechercher</button>
+              </div>
+              <div id="memory-search-results" style="max-height:260px;overflow-y:auto"></div>
+            </div>
+          </div>
+
+          <div class="card mb-16" style="margin-top:20px">
+            <div class="card-title">Benchmark retrieval</div>
+            <textarea id="memory-benchmark-queries" class="form-input" rows="3">simulation FDTD nanoparticules
+workflow phase 4C
+erreur Jest async</textarea>
+            <div style="display:flex;gap:8px;margin-top:10px;align-items:center;flex-wrap:wrap">
+              <button class="btn btn-secondary" onclick="runMemoryBenchmark()">Comparer keyword / vector / hybrid</button>
+              <div id="memory-benchmark-results" class="text-sm text-muted"></div>
             </div>
           </div>
 

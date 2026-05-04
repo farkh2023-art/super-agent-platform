@@ -89,8 +89,13 @@ const API = {
     return apiFetch(`/memory${qs ? '?' + qs : ''}`);
   },
   getMemoryStats: () => apiFetch('/memory/stats'),
+  getMemoryEmbeddingStatus: () => apiFetch('/memory/embeddings/status'),
   addMemoryChunk: (body) => apiFetch('/memory', { method: 'POST', body: JSON.stringify(body) }),
   searchMemory: (q, limit = 5) => apiFetch(`/memory/search?q=${encodeURIComponent(q)}&limit=${limit}`),
+  retrieveMemory: (body) => apiFetch('/memory/retrieve', { method: 'POST', body: JSON.stringify(body) }),
+  reindexMemoryEmbeddings: () => apiFetch('/memory/embeddings/reindex', { method: 'POST' }),
+  clearMemoryEmbeddings: () => apiFetch('/memory/embeddings', { method: 'DELETE' }),
+  benchmarkMemory: (body) => apiFetch('/memory/benchmark', { method: 'POST', body: JSON.stringify(body) }),
   deleteMemoryChunk: (id) => apiFetch(`/memory/${id}`, { method: 'DELETE' }),
   clearMemory: () => apiFetch('/memory', { method: 'DELETE' }),
   exportMemory: () => apiFetch('/memory/export'),

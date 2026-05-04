@@ -3,12 +3,21 @@
 const { v4: uuid } = require('uuid');
 const storage = require('../storage');
 const { sanitizeContent } = require('./sanitize');
-
-// ── Tokenization ──────────────────────────────────────────────────────────────
+const { chunkText, buildChunkTitle } = require('./chunker');
+const embeddingStore = require('./embeddingStore');
+const {
+  isEmbeddingsEnabled,
+  getEmbeddingConfig,
+  generateEmbedding,
+  cosineSimilarity,
+  getEmbeddingStatus,
+  estimateEmbeddingReadiness,
+  contentHash,
+} = require('./embeddings');
 
 function tokenize(text) {
-  return String(text).toLowerCase()
-    .replace(/[^a-z0-9\s]/g, ' ')
+  return String(text || '').toLowerCase()
+    .replace(/[^a-z0-9\u00c0-\u017f\s]/g, ' ')
     .split(/\s+/)
     .filter((t) => t.length > 2);
 }
@@ -20,93 +29,132 @@ function keywordScore(queryTokens, content) {
   return queryTokens.length > 0 ? hits / queryTokens.length : 0;
 }
 
-// ── Ollama embeddings (optional) ──────────────────────────────────────────────
-
-function cosineSim(a, b) {
-  let dot = 0, na = 0, nb = 0;
-  for (let i = 0; i < a.length; i++) {
-    dot += a[i] * b[i];
-    na += a[i] * a[i];
-    nb += b[i] * b[i];
-  }
-  return (na && nb) ? dot / (Math.sqrt(na) * Math.sqrt(nb)) : 0;
-}
-
-async function getOllamaEmbedding(text) {
-  const baseUrl = process.env.OLLAMA_BASE_URL || 'http://localhost:11434';
-  const model = process.env.MEMORY_EMBEDDING_MODEL || 'nomic-embed-text';
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 10000);
-  try {
-    const res = await fetch(`${baseUrl}/api/embeddings`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model, prompt: text }),
-      signal: controller.signal,
-    });
-    if (!res.ok) throw new Error(`Ollama embedding HTTP ${res.status}`);
-    const data = await res.json();
-    return data.embedding;
-  } finally {
-    clearTimeout(timer);
-  }
-}
-
-// ── Public API ────────────────────────────────────────────────────────────────
-
-async function addChunk({ content, source = 'manual', sourceId = null, agentId = null, tags = [] }) {
-  const clean = sanitizeContent(content);
-  let embedding = null;
-
-  if (process.env.MEMORY_EMBEDDINGS === 'ollama') {
-    try {
-      embedding = await getOllamaEmbedding(clean);
-    } catch {
-      // Ollama unavailable – store chunk without embedding, keyword search will still work
-    }
-  }
-
-  const chunk = {
-    id: uuid(),
-    content: clean,
-    source,
-    sourceId,
-    agentId,
-    tags,
-    embedding,
-    createdAt: new Date().toISOString(),
+function toResult(item, scores) {
+  const content = item.content || '';
+  return {
+    id: item.id,
+    title: item.title || item.sourcePath || item.sourceId || item.source || 'memory',
+    type: item.type || item.source || 'manual_note',
+    score: Number((scores.score || 0).toFixed(6)),
+    keywordScore: scores.keywordScore != null ? Number(scores.keywordScore.toFixed(6)) : undefined,
+    vectorScore: scores.vectorScore != null ? Number(scores.vectorScore.toFixed(6)) : undefined,
+    excerpt: content.slice(0, 420),
+    content,
+    source: item.source,
+    sourceId: item.sourceId || null,
+    agentId: item.agentId || null,
+    tags: item.tags || [],
+    metadata: item.metadata || {},
+    createdAt: item.createdAt,
   };
-  storage.create('memory', chunk);
-  return chunk;
+}
+
+async function ensureEmbeddingForItem(item, config) {
+  const hash = contentHash(item.content);
+  const existing = embeddingStore.getEmbedding(item.id, config.model);
+  if (existing && existing.contentHash === hash && Array.isArray(existing.embedding)) return existing;
+  const embedding = await generateEmbedding(item.content);
+  return embeddingStore.upsertEmbedding({
+    memoryId: item.id,
+    model: config.model,
+    embedding,
+    contentHash: hash,
+    createdAt: new Date().toISOString(),
+  });
+}
+
+async function addChunk({ content, source = 'manual', sourceId = null, sourcePath = null, agentId = null, tags = [], type = null, title = null, metadata = {} }) {
+  const clean = sanitizeContent(content);
+  const pieces = chunkText(clean);
+  const created = [];
+  for (let i = 0; i < pieces.length; i++) {
+    const chunk = {
+      id: uuid(),
+      content: pieces[i],
+      title: title || buildChunkTitle({ source, sourceId, sourcePath }, i),
+      type: type || (source === 'artifact' ? 'artifact' : 'manual_note'),
+      source,
+      sourceId,
+      sourcePath,
+      agentId,
+      tags,
+      metadata: { ...metadata, chunkIndex: i, chunkCount: pieces.length },
+      createdAt: new Date().toISOString(),
+    };
+    storage.create('memory', chunk);
+    created.push(chunk);
+  }
+  return created[0];
+}
+
+async function retrieve(query, options = {}) {
+  const modeRequested = ['keyword', 'vector', 'hybrid'].includes(options.mode) ? options.mode : 'keyword';
+  const topK = Math.max(1, Math.min(parseInt(options.topK || options.limit || '5', 10), 50));
+  const types = Array.isArray(options.types) ? options.types.filter(Boolean) : null;
+  const config = getEmbeddingConfig();
+  const allItems = storage.findAll('memory')
+    .filter((item) => !types || types.includes(item.type) || types.includes(item.source));
+  const qTokens = tokenize(query);
+
+  let modeUsed = modeRequested;
+  let embeddingsAvailable = false;
+  let queryEmbedding = null;
+  let fallbackReason = null;
+  const wantsVector = modeRequested === 'vector' || modeRequested === 'hybrid' || options.useEmbeddings === true;
+
+  if (wantsVector && isEmbeddingsEnabled()) {
+    try {
+      queryEmbedding = await generateEmbedding(query);
+      embeddingsAvailable = true;
+    } catch (err) {
+      modeUsed = 'keyword';
+      fallbackReason = err.message;
+    }
+  } else if (wantsVector) {
+    modeUsed = 'keyword';
+    fallbackReason = 'Embeddings disabled';
+  }
+
+  if (!embeddingsAvailable && (modeRequested === 'vector' || modeRequested === 'hybrid')) {
+    modeUsed = 'keyword';
+  }
+
+  const scored = [];
+  for (const item of allItems) {
+    const kScore = keywordScore(qTokens, `${item.title || ''} ${item.content || ''} ${(item.tags || []).join(' ')}`);
+    let vScore = null;
+    if (embeddingsAvailable && queryEmbedding) {
+      try {
+        const rec = await ensureEmbeddingForItem(item, config);
+        vScore = cosineSimilarity(queryEmbedding, rec.embedding);
+      } catch (err) {
+        vScore = null;
+      }
+    }
+
+    let score = kScore;
+    if (modeUsed === 'vector') score = vScore || 0;
+    if (modeUsed === 'hybrid') {
+      const alpha = Math.max(0, Math.min(config.hybridAlpha, 1));
+      score = alpha * (vScore || 0) + (1 - alpha) * kScore;
+    }
+    if (score > 0) scored.push(toResult(item, { score, keywordScore: kScore, vectorScore: vScore }));
+  }
+
+  scored.sort((a, b) => b.score - a.score);
+  return {
+    query,
+    modeRequested,
+    modeUsed,
+    embeddingsAvailable,
+    fallbackReason,
+    results: scored.slice(0, topK),
+  };
 }
 
 async function search(query, limit = 5) {
-  const chunks = storage.findAll('memory');
-  if (chunks.length === 0) return [];
-
-  if (process.env.MEMORY_EMBEDDINGS === 'ollama') {
-    try {
-      const qEmb = await getOllamaEmbedding(query);
-      return chunks
-        .map((c) => ({
-          c,
-          score: c.embedding ? cosineSim(qEmb, c.embedding) : keywordScore(tokenize(query), c.content),
-        }))
-        .sort((a, b) => b.score - a.score)
-        .slice(0, limit)
-        .map(({ c }) => c);
-    } catch {
-      // Fall through to keyword search
-    }
-  }
-
-  const qTokens = tokenize(query);
-  return chunks
-    .map((c) => ({ c, score: keywordScore(qTokens, c.content) }))
-    .filter(({ score }) => score > 0)
-    .sort((a, b) => b.score - a.score)
-    .slice(0, limit)
-    .map(({ c }) => c);
+  const data = await retrieve(query, { topK: limit, mode: 'keyword' });
+  return data.results;
 }
 
 function listChunks() {
@@ -114,28 +162,62 @@ function listChunks() {
 }
 
 function removeChunk(id) {
+  embeddingStore.removeEmbedding(id);
   return storage.remove('memory', id);
 }
 
 function clearMemory() {
   storage.clear('memory');
+  embeddingStore.clearEmbeddings();
 }
 
-function stats() {
-  const chunks = storage.findAll('memory');
-  const sources = {};
-  let embeddingsCount = 0;
-  for (const c of chunks) {
-    sources[c.source] = (sources[c.source] || 0) + 1;
-    if (c.embedding) embeddingsCount++;
+async function reindexEmbeddings(memoryId = null) {
+  const config = getEmbeddingConfig();
+  if (!isEmbeddingsEnabled()) throw new Error('Memory embeddings disabled');
+  const items = listChunks().filter((i) => !memoryId || i.id === memoryId);
+  if (memoryId && items.length === 0) {
+    const err = new Error('Memory item not found');
+    err.statusCode = 404;
+    throw err;
   }
+  let indexed = 0;
+  const errors = [];
+  for (const item of items) {
+    try {
+      await ensureEmbeddingForItem(item, config);
+      indexed++;
+    } catch (err) {
+      errors.push({ memoryId: item.id, error: err.message });
+      if (memoryId) throw err;
+    }
+  }
+  const metadata = embeddingStore.markReindexed();
+  return { indexed, total: items.length, errors, metadata };
+}
+
+async function stats() {
+  const chunks = listChunks();
+  const sources = {};
+  for (const c of chunks) sources[c.source] = (sources[c.source] || 0) + 1;
+  const status = await getEmbeddingStatus();
+  const readiness = estimateEmbeddingReadiness(chunks);
   return {
     total: chunks.length,
     sources,
-    embeddingsEnabled: process.env.MEMORY_EMBEDDINGS === 'ollama',
-    embeddingModel: process.env.MEMORY_EMBEDDING_MODEL || 'nomic-embed-text',
-    embeddingsCount,
+    embeddingsEnabled: status.enabled,
+    embeddingModel: status.model,
+    embeddingsCount: status.count,
+    embeddings: { ...status, readiness },
   };
 }
 
-module.exports = { addChunk, search, listChunks, removeChunk, clearMemory, stats };
+module.exports = {
+  addChunk,
+  search,
+  retrieve,
+  listChunks,
+  removeChunk,
+  clearMemory,
+  stats,
+  reindexEmbeddings,
+};

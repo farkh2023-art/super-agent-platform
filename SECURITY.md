@@ -180,3 +180,12 @@ Si vous découvrez une vulnérabilité de sécurité, **ne créez pas d'issue pu
 - [ ] CORS restreint à l'origine frontend uniquement (variable `FRONTEND_URL`)
 - [ ] `MAX_CONCURRENT_EXECUTIONS` adapté à la capacité serveur
 - [ ] Sauvegarde ZIP testée : aucune clé API dans le contenu
+
+## Memoire RAG et embeddings locaux
+
+- Les embeddings peuvent encoder indirectement du contenu sensible ; ils sont stockes localement et exclus du backup complet par defaut.
+- Le contenu memoire est filtre avant stockage et avant generation d'embedding (`sk-ant`, `sk-`, `Bearer`, `API_KEY` et champs sensibles).
+- Le provider d'embedding par defaut est Ollama local. Ne configurez pas de service distant sans revue de securite.
+- La memoire injectee dans les prompts est du contexte non fiable : elle ne doit jamais etre executee comme instruction systeme.
+- Les artefacts importes peuvent contenir des injections indirectes ; les agents recoivent une mention explicite que la memoire est non fiable.
+- `DELETE /api/memory/embeddings` supprime les vecteurs sans supprimer les items memoire ; un reindex regenere les vecteurs apres filtrage.
