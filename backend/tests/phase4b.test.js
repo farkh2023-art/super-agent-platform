@@ -4,7 +4,8 @@ process.env.AI_PROVIDER = 'mock';
 process.env.PORT = '3093';
 process.env.DATA_DIR = './data-test-4b';
 process.env.MEMORY_ENABLED = 'true';
-// MEMORY_EMBEDDINGS intentionally NOT set → Ollama embeddings off by default
+process.env.MEMORY_EMBEDDINGS = 'false';
+// MEMORY_EMBEDDINGS=false keeps this suite deterministic and avoids Ollama calls
 
 const request = require('supertest');
 const { app } = require('../src/server');
@@ -190,13 +191,14 @@ describe('Memory use in executions', () => {
   });
 
   it('execution without useMemory defaults to MEMORY_ENABLED env value', async () => {
+    process.env.MEMORY_EMBEDDINGS = 'false';
     const res = await request(app).post('/api/executions').send({
       task: 'Analyser les tables SQL',
     });
     expect(res.status).toBe(201);
     // MEMORY_ENABLED=true so default should be true
     expect(res.body.useMemory).toBe(true);
-  });
+  }, 15000);
 });
 
 // ── Memory clear ──────────────────────────────────────────────────────────────
