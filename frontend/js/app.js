@@ -31,6 +31,7 @@ function navigate(view) {
     case 'artifacts': loadArtifactsView(); break;
     case 'workflows': loadWorkflowsView(); break;
     case 'settings': loadSettingsView(); break;
+    case 'search': loadSearchView(); break;
   }
 }
 
@@ -476,6 +477,7 @@ async function loadWorkflowsView() {
             </div>
             <div style="display:flex;gap:8px">
               <button class="btn btn-sm btn-success" onclick="runWorkflow('${wf.id}')">▶ Exécuter</button>
+              <a href="/api/workflows/${wf.id}/export" class="btn btn-sm btn-secondary" download>📤 Export</a>
               <button class="btn btn-sm btn-danger" onclick="deleteWorkflow('${wf.id}')">🗑</button>
             </div>
           </div>
@@ -639,6 +641,74 @@ function updateProviderBadge(provider) {
   const label = badge.querySelector('#provider-label');
   if (dot) dot.className = `provider-dot ${provider === 'mock' ? 'mock' : ''}`;
   if (label) label.textContent = provider === 'mock' ? 'Mock Mode' : provider.charAt(0).toUpperCase() + provider.slice(1);
+}
+
+// ── Search View ──────────────────────────────────────────────────────────────
+function loadSearchView() {
+  const container = qs('#search-results');
+  if (container) container.innerHTML = '<div class="text-muted text-sm" style="padding:20px">Entrez un terme et cliquez sur Rechercher.</div>';
+}
+
+async function performSearch() {
+  const input = qs('#search-input');
+  const q = input ? input.value.trim() : '';
+  if (!q) { showToast('Entrez un terme de recherche', 'error'); return; }
+
+  const container = qs('#search-results');
+  container.innerHTML = '<div class="text-muted text-sm" style="padding:20px">Recherche en cours...</div>';
+
+  try {
+    const data = await API.search(q);
+    if (data.total === 0) {
+      container.innerHTML = `<div class="empty-state"><div class="empty-icon">🔍</div><p>Aucun résultat pour "<strong>${escHtml(q)}</strong>"</p></div>`;
+      return;
+    }
+
+    const sections = [
+      { key: 'workflows', label: '🔄 Workflows', nav: 'workflows' },
+      { key: 'executions', label: '📋 Exécutions', nav: 'executions' },
+      { key: 'artifacts', label: '📎 Artefacts', nav: 'artifacts' },
+      { key: 'tasks', label: '📝 Tâches', nav: 'execute' },
+    ];
+
+    container.innerHTML = `
+      <div class="text-sm text-muted mb-12">${data.total} résultat(s) pour "<strong>${escHtml(q)}</strong>"</div>
+      ${sections.filter((s) => (data.results[s.key] || []).length > 0).map((s) => `
+        <div class="card mb-12">
+          <div class="card-title">${s.label} (${data.results[s.key].length})</div>
+          ${data.results[s.key].map((item) => `
+            <div class="step-item" style="cursor:pointer" onclick="navigate('${s.nav}')">
+              <div style="flex:1;min-width:0">
+                <div class="step-agent" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
+                  ${escHtml(item.name || item.task || item.agentName || item.id)}
+                </div>
+                <div class="text-sm text-muted">${formatDate(item.createdAt)}${item.status ? ' • ' + item.status : ''}</div>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      `).join('')}
+    `;
+  } catch (err) {
+    container.innerHTML = `<div class="text-red">Erreur: ${escHtml(err.message)}</div>`;
+  }
+}
+
+// ── Workflow import ───────────────────────────────────────────────────────────
+async function importWorkflowFile(input) {
+  const file = input.files[0];
+  if (!file) return;
+  try {
+    const text = await file.text();
+    const data = JSON.parse(text);
+    const workflow = data.workflow || data;
+    await API.importWorkflow(workflow);
+    showToast('Workflow importé !', 'success');
+    input.value = '';
+    loadWorkflowsView();
+  } catch (err) {
+    showToast(`Erreur import: ${err.message}`, 'error');
+  }
 }
 
 // ── Utils ────────────────────────────────────────────────────────────────────

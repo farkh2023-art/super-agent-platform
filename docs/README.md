@@ -2,7 +2,7 @@
 
 Plateforme web locale pour gérer et orchestrer 10 agents IA spécialisés.
 
-[![Tests](https://img.shields.io/badge/tests-42%2F42%20✅-brightgreen)]()
+[![Tests](https://img.shields.io/badge/tests-58%2F58%20✅-brightgreen)]()
 [![Mode Mock](https://img.shields.io/badge/mode-mock%20(sans%20clé%20API)-yellow)]()
 [![Node.js](https://img.shields.io/badge/node-%3E%3D22-blue)]()
 
@@ -53,10 +53,16 @@ npm start        # ou: node src/server.js
 | Dashboard stats (`GET /api/dashboard/stats`) | ✅ |
 | Workflows multi-étapes | ✅ |
 | Exécution parallèle de steps workflow | ✅ |
+| Limite de concurrence (`MAX_CONCURRENT_EXECUTIONS`) | ✅ |
+| Historique des workflow runs (`GET /api/workflow-runs`) | ✅ |
+| Import / Export de workflows (JSON) | ✅ |
+| Recherche globale (`GET /api/search?q=...`) | ✅ |
+| Health détaillé (`GET /api/health/detailed`) | ✅ |
+| Sauvegarde ZIP sans secrets (`GET /api/backup/download`) | ✅ |
 | Support Claude / OpenAI / Ollama | ✅ |
 | Interface web SPA complète | ✅ |
 | Dépôt git initialisé + `.gitignore` | ✅ |
-| Tests backend (42/42) | ✅ |
+| Tests backend (58/58) | ✅ |
 
 ---
 
@@ -72,12 +78,12 @@ super-agent-platform/
 ├── backend/
 │   ├── src/
 │   │   ├── agents/registry.js    # 10 définitions d'agents
-│   │   ├── engine/               # Planificateur + Exécuteur + Workflows (parallèle)
+│   │   ├── engine/               # Planificateur + Exécuteur + Concurrence + Workflows
 │   │   ├── logging/jsonl.js      # Logs structurés JSONL
 │   │   ├── providers/            # Claude, OpenAI, Ollama, Mock
-│   │   ├── routes/               # API REST (agents, tasks, executions, dashboard…)
+│   │   ├── routes/               # API REST (agents, tasks, executions, search, backup…)
 │   │   └── server.js             # Express + WebSocket
-│   ├── tests/                    # 42 tests Jest (4 suites)
+│   ├── tests/                    # 58 tests Jest (5 suites)
 │   └── data/                     # Stockage JSON + logs JSONL (auto-créé, git-ignoré)
 ├── frontend/
 │   ├── index.html                # SPA (7 vues : dashboard, agents, execute…)
@@ -150,6 +156,7 @@ Suites :
 - `tests/planner.test.js` — Planificateur automatique (8 tests)
 - `tests/api.test.js` — API REST end-to-end (18 tests)
 - `tests/dashboard.test.js` — Dashboard stats endpoint (6 tests)
+- `tests/phase2c.test.js` — Santé détaillée, recherche, import/export, backup (16 tests)
 
 ---
 

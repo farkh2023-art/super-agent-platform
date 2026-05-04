@@ -4,6 +4,7 @@ const express = require('express');
 const { createExecution, runExecution } = require('../engine/executor');
 const { generatePlan } = require('../engine/planner');
 const storage = require('../storage');
+const limiter = require('../engine/concurrency');
 
 const router = express.Router();
 
@@ -20,7 +21,7 @@ router.post('/', async (req, res) => {
       plan = await generatePlan(task, agentIds || []);
     }
     const execution = createExecution(plan);
-    runExecution(execution.id).catch(console.error);
+    limiter.run(() => runExecution(execution.id)).catch(console.error);
     res.status(201).json(execution);
   } catch (err) {
     res.status(500).json({ error: err.message });

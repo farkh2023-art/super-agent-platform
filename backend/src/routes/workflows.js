@@ -40,6 +40,41 @@ router.get('/', (req, res) => {
   res.json({ workflows, total: workflows.length });
 });
 
+// GET /api/workflows/export-all – export all workflows as JSON
+router.get('/export-all', (req, res) => {
+  const workflows = storage.findAll('workflows');
+  const ts = new Date().toISOString().slice(0, 10);
+  res.setHeader('Content-Type', 'application/json');
+  res.setHeader('Content-Disposition', `attachment; filename="workflows_${ts}.json"`);
+  res.json({ exportedAt: new Date().toISOString(), workflows });
+});
+
+// POST /api/workflows/import – create workflow from exported JSON
+router.post('/import', (req, res) => {
+  const source = req.body.workflow || req.body;
+  if (!source || !source.name || !Array.isArray(source.steps) || source.steps.length === 0) {
+    return res.status(400).json({ error: 'JSON invalide: name et steps requis' });
+  }
+
+  const workflow = {
+    id: uuid(),
+    name: source.name,
+    description: source.description || '',
+    steps: source.steps.map((s, i) => ({
+      id: uuid(),
+      order: i + 1,
+      name: s.name || `Étape ${i + 1}`,
+      task: s.task || '',
+      agentIds: s.agentIds || [],
+      parallel: s.parallel === true,
+    })),
+    importedAt: new Date().toISOString(),
+    createdAt: new Date().toISOString(),
+  };
+  storage.create('workflows', workflow);
+  res.status(201).json(workflow);
+});
+
 // GET /api/workflows/:id
 router.get('/:id', (req, res) => {
   const wf = storage.findById('workflows', req.params.id);
@@ -72,6 +107,16 @@ router.post('/:id/run', async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
+});
+
+// GET /api/workflows/:id/export – download specific workflow as JSON
+router.get('/:id/export', (req, res) => {
+  const wf = storage.findById('workflows', req.params.id);
+  if (!wf) return res.status(404).json({ error: 'Workflow introuvable' });
+  const filename = `workflow_${wf.id.substring(0, 8)}.json`;
+  res.setHeader('Content-Type', 'application/json');
+  res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+  res.json({ exportedAt: new Date().toISOString(), workflow: wf });
 });
 
 // GET /api/workflows/:id/runs

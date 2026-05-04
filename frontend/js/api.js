@@ -56,6 +56,16 @@ const API = {
   // Dashboard
   getDashboardStats: () => apiFetch('/dashboard/stats'),
 
+  // Search
+  search: (q, type = 'all') => apiFetch(`/search?q=${encodeURIComponent(q)}&type=${type}`),
+
+  // Workflow import
+  importWorkflow: (workflow) => apiFetch('/workflows/import', { method: 'POST', body: JSON.stringify({ workflow }) }),
+
+  // Workflow runs
+  getWorkflowRuns: () => apiFetch('/workflow-runs'),
+  getWorkflowRun: (id) => apiFetch(`/workflow-runs/${id}`),
+
   // Health
   health: () => apiFetch('/health'),
 };

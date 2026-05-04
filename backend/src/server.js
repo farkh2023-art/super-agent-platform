@@ -8,6 +8,7 @@ const path = require('path');
 const cors = require('cors');
 const { WebSocketServer } = require('ws');
 const { setBroadcast } = require('./engine/executor');
+const limiter = require('./engine/concurrency');
 
 const app = express();
 const server = http.createServer(app);
@@ -52,6 +53,9 @@ app.use('/api/workflows', require('./routes/workflows'));
 app.use('/api/artifacts', require('./routes/artifacts'));
 app.use('/api/settings', require('./routes/settings'));
 app.use('/api/dashboard', require('./routes/dashboard'));
+app.use('/api/search', require('./routes/search'));
+app.use('/api/workflow-runs', require('./routes/workflow-runs'));
+app.use('/api/backup', require('./routes/backup'));
 
 // Health check
 app.get('/api/health', (req, res) => {
@@ -61,6 +65,39 @@ app.get('/api/health', (req, res) => {
     provider: process.env.AI_PROVIDER || 'mock',
     uptime: Math.round(process.uptime()),
     timestamp: new Date().toISOString(),
+  });
+});
+
+// Detailed health
+app.get('/api/health/detailed', (req, res) => {
+  const storage = require('./storage');
+  const { getAllAgents } = require('./agents/registry');
+  const mem = process.memoryUsage();
+  res.json({
+    status: 'ok',
+    version: '1.0.0',
+    system: {
+      node: process.version,
+      platform: process.platform,
+      arch: process.arch,
+      memoryMB: {
+        rss: Math.round(mem.rss / 1024 / 1024),
+        heapUsed: Math.round(mem.heapUsed / 1024 / 1024),
+        heapTotal: Math.round(mem.heapTotal / 1024 / 1024),
+      },
+    },
+    storage: {
+      executions: storage.findAll('executions').length,
+      artifacts:  storage.findAll('artifacts').length,
+      workflows:  storage.findAll('workflows').length,
+      tasks:      storage.findAll('tasks').length,
+      workflowRuns: storage.findAll('workflow_runs').length,
+    },
+    agents:      { total: getAllAgents().length },
+    concurrency: limiter.stats(),
+    provider:    process.env.AI_PROVIDER || 'mock',
+    uptime:      Math.round(process.uptime()),
+    timestamp:   new Date().toISOString(),
   });
 });
 

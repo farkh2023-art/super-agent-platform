@@ -45,6 +45,10 @@
           <span class="nav-icon">🔄</span>
           <span>Workflows</span>
         </button>
+        <button class="nav-item" data-view="search">
+          <span class="nav-icon">🔍</span>
+          <span>Recherche</span>
+        </button>
         <button class="nav-item" data-view="settings">
           <span class="nav-icon">⚙️</span>
           <span>Paramètres</span>
@@ -300,6 +304,10 @@
             <div class="btn-group">
               <button class="btn btn-secondary" onclick="addWorkflowStep()">➕ Ajouter une étape</button>
               <button class="btn btn-primary" onclick="saveWorkflow()">💾 Sauvegarder le Workflow</button>
+              <label class="btn btn-secondary" style="cursor:pointer" title="Importer un workflow depuis un fichier JSON">
+                📥 Importer JSON
+                <input type="file" accept=".json" style="display:none" onchange="importWorkflowFile(this)">
+              </label>
             </div>
           </div>
 
@@ -387,6 +395,14 @@
               </div>
 
               <div class="card">
+                <div class="card-title">💾 Sauvegarde des données</div>
+                <p style="font-size:13px;color:var(--text2);margin-bottom:12px">
+                  Télécharge un ZIP de toutes vos données (tâches, exécutions, artefacts, workflows). Aucune clé API n'est incluse.
+                </p>
+                <a href="/api/backup/download" class="btn btn-secondary" download>⬇ Télécharger la sauvegarde ZIP</a>
+              </div>
+
+              <div class="card">
                 <div class="card-title">💡 Configuration via .env</div>
                 <div style="background:var(--bg3);border-radius:8px;padding:12px;font-family:var(--mono);font-size:12px;line-height:1.8;color:var(--text2)">
                   <div><span style="color:var(--accent)"># Copiez .env.example en .env</span></div>
@@ -401,6 +417,26 @@
               </div>
             </div>
           </div>
+        </div>
+      </div>
+
+      <!-- ╔═══════════════════════════════════════╗ -->
+      <!-- ║  VIEW: SEARCH                         ║ -->
+      <!-- ╚═══════════════════════════════════════╝ -->
+      <div id="view-search" class="view" style="display:none">
+        <div class="page-header">
+          <h1>🔍 Recherche globale</h1>
+          <p>Cherchez dans les tâches, exécutions, artefacts et workflows</p>
+        </div>
+        <div class="page-body">
+          <div class="card mb-16">
+            <div style="display:flex;gap:10px">
+              <input id="search-input" class="form-input flex-1" placeholder="Entrez votre recherche..."
+                     onkeydown="if(event.key==='Enter') performSearch()">
+              <button class="btn btn-primary" onclick="performSearch()">🔍 Rechercher</button>
+            </div>
+          </div>
+          <div id="search-results"></div>
         </div>
       </div>
 
