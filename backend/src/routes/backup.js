@@ -76,13 +76,13 @@ router.get('/download', (req, res) => {
     authDbIncluded: includeAuthDb,
     authSummaryIncluded: includeAuthSummary,
     validationReportsIncluded: true,
-    collections: ['tasks', 'executions', 'artifacts', 'workflows', 'workflow_runs', 'schedules', 'memory', 'memory_eval_queries', 'memory_evaluation_reports', 'storage_events', 'metrics'],
+    collections: ['tasks', 'executions', 'artifacts', 'workflows', 'workflow_runs', 'schedules', 'alert_rules', 'notifications', 'memory', 'memory_eval_queries', 'memory_evaluation_reports', 'storage_events', 'metrics'],
   };
   archive.append(Buffer.from(JSON.stringify(manifest, null, 2)), { name: 'manifest.json' });
   archive.append(Buffer.from('false'), { name: 'embeddingsIncluded_false.txt' });
 
   // Collections — read via storage to get live data, sanitize settings
-  const collections = ['tasks', 'executions', 'artifacts', 'workflows', 'workflow_runs', 'schedules'];
+  const collections = ['tasks', 'executions', 'artifacts', 'workflows', 'workflow_runs', 'schedules', 'alert_rules', 'notifications'];
   for (const col of collections) {
     const data = storage.findAll(col);
     archive.append(Buffer.from(JSON.stringify(data, null, 2)), { name: `${col}.json` });

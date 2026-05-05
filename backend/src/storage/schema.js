@@ -109,6 +109,21 @@ const TABLES = {
       createdAt: 'created_at',
     },
   },
+  alert_rules: {
+    table: 'alert_rules',
+    columns: {
+      id: 'id',
+      name: 'name',
+      metric: 'metric',
+      operator: 'operator',
+      threshold: 'threshold',
+      severity: 'severity',
+      enabled: 'enabled',
+      cooldownMs: 'cooldown_ms',
+      lastTriggeredAt: 'last_triggered_at',
+      createdAt: 'created_at',
+    },
+  },
 };
 
 const COLLECTIONS = Object.keys(TABLES);
@@ -248,6 +263,20 @@ CREATE INDEX IF NOT EXISTS idx_memory_items_type ON memory_items(type);
 CREATE INDEX IF NOT EXISTS idx_memory_items_source_id ON memory_items(source_id);
 CREATE INDEX IF NOT EXISTS idx_memory_embeddings_memory_id ON memory_embeddings(memory_id);
 CREATE INDEX IF NOT EXISTS idx_notifications_read ON notifications(read);
+CREATE TABLE IF NOT EXISTS alert_rules (
+  id TEXT PRIMARY KEY,
+  name TEXT,
+  metric TEXT,
+  operator TEXT,
+  threshold REAL,
+  severity TEXT,
+  enabled INTEGER,
+  cooldown_ms INTEGER,
+  last_triggered_at TEXT,
+  created_at TEXT,
+  raw_json TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_alert_rules_enabled ON alert_rules(enabled);
 CREATE INDEX IF NOT EXISTS idx_storage_events_created_at ON storage_events(created_at);
 `;
 

@@ -47,6 +47,7 @@ function navigate(view) {
     case 'audit-log':   loadAuditLogView(); break;
     case 'sessions':      loadSessionsView(); break;
     case 'admin-health':  loadAdminHealthView(); break;
+    case 'alert-center':  loadAlertCenterView(); break;
   }
 }
 
@@ -69,6 +70,7 @@ function updateAuthUI() {
   const navAudit = qs('#nav-audit-log');
   const navSessions = qs('#nav-sessions');
   const navAdminHealth = qs('#nav-admin-health');
+  const navAlertCenter = qs('#nav-alert-center');
   const badge    = qs('#execute-workspace-badge');
   const wsName   = qs('#execute-workspace-name');
 
@@ -84,6 +86,7 @@ function updateAuthUI() {
     if (navAudit) navAudit.style.display = user.role === 'admin' ? 'flex' : 'none';
     if (navSessions) navSessions.style.display = 'flex';
     if (navAdminHealth) navAdminHealth.style.display = user.role === 'admin' ? 'flex' : 'none';
+    if (navAlertCenter) navAlertCenter.style.display = user.role === 'admin' ? 'flex' : 'none';
     const adminUsersSection = qs('#admin-users-section');
     if (adminUsersSection) adminUsersSection.style.display = user.role === 'admin' ? 'block' : 'none';
     if (badge && wsName) {
@@ -100,6 +103,7 @@ function updateAuthUI() {
     if (navAudit) navAudit.style.display = 'none';
     if (navSessions) navSessions.style.display = 'none';
     if (navAdminHealth) navAdminHealth.style.display = 'none';
+    if (navAlertCenter) navAlertCenter.style.display = 'none';
     if (badge)    badge.style.display = 'none';
   }
 }
@@ -2365,6 +2369,139 @@ function clearNotifications() {
 }
 
 window.addEventListener('ws:notification', () => renderNotifications());
+
+// Alert Center (Phase 7B)
+async function loadAlertCenterView() {
+  await Promise.all([loadAlertRulesUI(), loadPersistentAlertsUI(), loadReportScheduleUI()]);
+}
+
+function renderRuleRow(rule) {
+  return `<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;background:var(--bg3);border-radius:8px;margin-bottom:8px">
+    <div style="min-width:0">
+      <div style="font-weight:600;font-size:13px">${escHtml(rule.name)}</div>
+      <div style="font-size:11px;color:var(--text2);font-family:var(--mono)">${escHtml(rule.metric)} ${escHtml(rule.operator)} ${escHtml(String(rule.threshold))} - ${escHtml(rule.severity)} - cooldown ${Math.round((rule.cooldownMs || 0) / 1000)}s</div>
+      <div style="font-size:11px;color:var(--text3)">Derniere alerte: ${rule.lastTriggeredAt ? new Date(rule.lastTriggeredAt).toLocaleString('fr') : 'jamais'}</div>
+    </div>
+    <div style="display:flex;gap:6px;flex-shrink:0">
+      <button class="btn btn-sm btn-secondary" onclick="toggleAlertRule('${escHtml(rule.id)}', ${rule.enabled !== false})">${rule.enabled !== false ? 'Pause' : 'Activer'}</button>
+      <button class="btn btn-sm btn-danger" onclick="deleteAlertRuleUI('${escHtml(rule.id)}')">Supprimer</button>
+    </div>
+  </div>`;
+}
+
+async function loadAlertRulesUI() {
+  const el = qs('#alert-rules-list');
+  if (!el) return;
+  el.innerHTML = '<div class="text-muted text-sm">Chargement...</div>';
+  try {
+    const { rules } = await API.getAlertRules();
+    el.innerHTML = rules && rules.length ? rules.map(renderRuleRow).join('') : '<div class="text-muted text-sm">Aucune regle.</div>';
+  } catch (err) {
+    el.innerHTML = `<div class="text-red">${escHtml(err.message)}</div>`;
+  }
+}
+
+async function createAlertRuleUI() {
+  const body = {
+    name: qs('#alert-rule-name')?.value?.trim(),
+    metric: qs('#alert-rule-metric')?.value,
+    operator: qs('#alert-rule-operator')?.value,
+    threshold: Number(qs('#alert-rule-threshold')?.value || 0),
+    severity: qs('#alert-rule-severity')?.value,
+    cooldownMs: Number(qs('#alert-rule-cooldown')?.value || 900) * 1000,
+  };
+  if (!body.name) body.name = `${body.metric} ${body.operator} ${body.threshold}`;
+  try {
+    await API.createAlertRule(body);
+    showToast('Regle ajoutee', 'success');
+    loadAlertRulesUI();
+  } catch (err) {
+    showToast(err.message || 'Erreur', 'error');
+  }
+}
+
+async function toggleAlertRule(id, enabled) {
+  await API.updateAlertRule(id, { enabled: !enabled });
+  loadAlertRulesUI();
+}
+
+async function deleteAlertRuleUI(id) {
+  if (!confirm('Supprimer cette regle ?')) return;
+  await API.deleteAlertRule(id);
+  loadAlertRulesUI();
+}
+
+async function runAlertEvaluationUI() {
+  try {
+    const result = await API.evaluateAlerts();
+    showToast(`${result.triggered.length} alerte(s) declenchee(s)`, result.triggered.length ? 'success' : 'info');
+    await Promise.all([loadAlertRulesUI(), loadPersistentAlertsUI()]);
+  } catch (err) {
+    showToast(err.message || 'Erreur evaluation', 'error');
+  }
+}
+
+function renderAlertRow(n) {
+  return `<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;background:${n.read ? 'var(--bg3)' : 'rgba(245,158,11,0.12)'};border:1px solid var(--border);border-radius:8px;margin-bottom:8px">
+    <div style="min-width:0">
+      <div style="font-weight:600;font-size:13px">${escHtml(n.title || n.type)}</div>
+      <div style="font-size:12px;color:var(--text2)">${escHtml(n.message || '')}</div>
+      <div style="font-size:11px;color:var(--text3)">${new Date(n.createdAt).toLocaleString('fr')} - ${escHtml(n.severity || 'info')}</div>
+    </div>
+    ${n.read ? '<span class="badge badge-completed">lu</span>' : `<button class="btn btn-sm btn-secondary" onclick="markAlertReadUI('${escHtml(n.id)}')">Marquer lu</button>`}
+  </div>`;
+}
+
+async function loadPersistentAlertsUI() {
+  const el = qs('#persistent-alerts-list');
+  if (!el) return;
+  el.innerHTML = '<div class="text-muted text-sm">Chargement...</div>';
+  try {
+    const data = await API.getAlerts({ limit: 50 });
+    const badge = qs('#alert-unread-count');
+    if (badge) badge.textContent = String(data.unread || 0);
+    el.innerHTML = data.notifications && data.notifications.length ? data.notifications.map(renderAlertRow).join('') : '<div class="text-muted text-sm">Aucune notification persistante.</div>';
+  } catch (err) {
+    el.innerHTML = `<div class="text-red">${escHtml(err.message)}</div>`;
+  }
+}
+
+async function markAlertReadUI(id) {
+  await API.markAlertRead(id);
+  loadPersistentAlertsUI();
+}
+
+async function markAllAlertsReadUI() {
+  await API.markAllAlertsRead();
+  loadPersistentAlertsUI();
+}
+
+async function loadReportScheduleUI() {
+  const el = qs('#report-schedule-status');
+  if (!el) return;
+  try {
+    const cfg = await API.getAdminReportSchedule();
+    qs('#report-schedule-enabled').checked = !!cfg.enabled;
+    qs('#report-schedule-interval').value = Math.round((cfg.intervalMs || 86400000) / 60000);
+    el.textContent = `Runs: ${cfg.runCount || 0} - prochain: ${cfg.nextRunAt ? new Date(cfg.nextRunAt).toLocaleString('fr') : 'N/A'}`;
+  } catch (err) {
+    el.textContent = err.message || 'Indisponible';
+  }
+}
+
+async function saveReportScheduleUI() {
+  const enabled = !!qs('#report-schedule-enabled')?.checked;
+  const intervalMs = Number(qs('#report-schedule-interval')?.value || 1440) * 60000;
+  await API.updateAdminReportSchedule({ enabled, intervalMs });
+  showToast('Planification enregistree', 'success');
+  loadReportScheduleUI();
+}
+
+async function triggerReportScheduleUI() {
+  await API.triggerAdminReportSchedule();
+  showToast('Rapport genere', 'success');
+  loadReportScheduleUI();
+}
 
 // ── Admin Health (Phase 7) ───────────────────────────────────────────────────
 

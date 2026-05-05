@@ -228,6 +228,20 @@ const API = {
   getAdminHealth: () => apiFetch('/admin/health'),
   getAdminReportJson: () => apiFetch('/admin/report.json'),
   getAdminReports: () => apiFetch('/admin/reports'),
+  getAlertRules: () => apiFetch('/admin/alert-rules'),
+  createAlertRule: (body) => apiFetch('/admin/alert-rules', { method: 'POST', body: JSON.stringify(body) }),
+  updateAlertRule: (id, body) => apiFetch(`/admin/alert-rules/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
+  deleteAlertRule: (id) => apiFetch(`/admin/alert-rules/${id}`, { method: 'DELETE' }),
+  evaluateAlerts: () => apiFetch('/admin/alerts/evaluate', { method: 'POST', body: JSON.stringify({}) }),
+  getAlerts: (params = {}) => {
+    const qs = new URLSearchParams(params).toString();
+    return apiFetch(`/admin/alerts${qs ? '?' + qs : ''}`);
+  },
+  markAlertRead: (id) => apiFetch(`/admin/alerts/${id}/read`, { method: 'PATCH', body: JSON.stringify({}) }),
+  markAllAlertsRead: () => apiFetch('/admin/alerts/mark-all-read', { method: 'POST', body: JSON.stringify({}) }),
+  getAdminReportSchedule: () => apiFetch('/admin/report-schedule'),
+  updateAdminReportSchedule: (body) => apiFetch('/admin/report-schedule', { method: 'PUT', body: JSON.stringify(body) }),
+  triggerAdminReportSchedule: () => apiFetch('/admin/report-schedule/trigger', { method: 'POST', body: JSON.stringify({}) }),
   exportAuditCsv: (params = {}) => {
     const qs = new URLSearchParams(params).toString();
     return `${API_BASE}/auth/audit-log/export.csv${qs ? '?' + qs : ''}`;

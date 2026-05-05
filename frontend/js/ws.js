@@ -66,6 +66,7 @@ const NOTIFY_EVENTS = new Set([
   'auth:session_revoked', 'auth:cleanup_completed', 'auth:blacklist_updated',
   'storage:desync_detected', 'storage:validation_completed',
   'rag:evaluation_completed', 'scheduler:job_failed', 'system:health_warning',
+  'alert:created', 'alert:read',
 ]);
 const MAX_NOTIFICATIONS = 50;
 window._notifications = [];

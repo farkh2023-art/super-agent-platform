@@ -23,6 +23,8 @@ const notify = {
   ragEvaluation:       (data = {}) => emit('rag:evaluation_completed', data),
   schedulerJobFailed:  (data = {}) => emit('scheduler:job_failed', data),
   healthWarning:       (data = {}) => emit('system:health_warning', data),
+  alertCreated:        (data = {}) => emit('alert:created', data),
+  alertRead:           (data = {}) => emit('alert:read', data),
 };
 
 module.exports = { setBroadcastFn, emit, notify };

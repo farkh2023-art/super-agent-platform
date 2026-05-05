@@ -114,6 +114,10 @@
           <span class="nav-icon">🩺</span>
           <span>Admin Health</span>
         </button>
+        <button class="nav-item" data-view="alert-center" id="nav-alert-center" style="display:none">
+          <span class="nav-icon">!</span>
+          <span>Alert Center</span>
+        </button>
       </nav>
 
       <div class="sidebar-footer">
@@ -1071,6 +1075,76 @@ erreur Jest async</textarea>
               </div>
             </div>
             <div id="ah-audit-list"><div class="text-muted text-sm">Chargement...</div></div>
+          </div>
+        </div>
+      </div>
+
+      <div id="view-alert-center" class="view" style="display:none">
+        <div class="page-header">
+          <div style="display:flex;align-items:center;justify-content:space-between">
+            <div>
+              <h1>Alert Center</h1>
+              <p>Regles d'alerte, notifications persistantes et rapports admin planifies</p>
+            </div>
+            <div style="display:flex;gap:8px">
+              <button class="btn btn-secondary btn-sm" onclick="runAlertEvaluationUI()">Evaluer</button>
+              <button class="btn btn-secondary btn-sm" onclick="loadAlertCenterView()">Rafraichir</button>
+            </div>
+          </div>
+        </div>
+        <div class="page-body">
+          <div class="card mb-16">
+            <div class="card-title">Regles d'alerte</div>
+            <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;margin-bottom:12px">
+              <input id="alert-rule-name" class="form-input" placeholder="Nom" style="width:160px">
+              <select id="alert-rule-metric" class="form-select" style="width:170px">
+                <option value="warningsCount">warningsCount</option>
+                <option value="heapUsedRatio">heapUsedRatio</option>
+                <option value="heapUsedMb">heapUsedMb</option>
+                <option value="desyncAlerts">desyncAlerts</option>
+                <option value="activeSessions">activeSessions</option>
+                <option value="schedulesCount">schedulesCount</option>
+              </select>
+              <select id="alert-rule-operator" class="form-select" style="width:80px">
+                <option value=">">&gt;</option>
+                <option value=">=">&gt;=</option>
+                <option value="<">&lt;</option>
+                <option value="<=">&lt;=</option>
+                <option value="==">==</option>
+                <option value="!=">!=</option>
+              </select>
+              <input id="alert-rule-threshold" class="form-input" type="number" step="0.01" value="0" style="width:110px">
+              <select id="alert-rule-severity" class="form-select" style="width:120px">
+                <option value="warning">warning</option>
+                <option value="critical">critical</option>
+                <option value="info">info</option>
+              </select>
+              <input id="alert-rule-cooldown" class="form-input" type="number" min="0" value="900" style="width:110px" title="Cooldown secondes">
+              <button class="btn btn-primary btn-sm" onclick="createAlertRuleUI()">Ajouter</button>
+            </div>
+            <div id="alert-rules-list"><div class="text-muted text-sm">Chargement...</div></div>
+          </div>
+
+          <div class="card mb-16">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+              <div class="card-title" style="margin:0">Notifications persistantes (<span id="alert-unread-count">0</span>)</div>
+              <button class="btn btn-secondary btn-sm" onclick="markAllAlertsReadUI()">Tout marquer lu</button>
+            </div>
+            <div id="persistent-alerts-list"><div class="text-muted text-sm">Chargement...</div></div>
+          </div>
+
+          <div class="card">
+            <div class="card-title">Rapports admin planifies</div>
+            <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+              <label style="display:flex;align-items:center;gap:6px;font-size:13px">
+                <input id="report-schedule-enabled" type="checkbox"> Active
+              </label>
+              <input id="report-schedule-interval" class="form-input" type="number" min="1" value="1440" style="width:140px">
+              <span class="text-sm text-muted">minutes</span>
+              <button class="btn btn-secondary btn-sm" onclick="saveReportScheduleUI()">Enregistrer</button>
+              <button class="btn btn-secondary btn-sm" onclick="triggerReportScheduleUI()">Generer maintenant</button>
+            </div>
+            <div id="report-schedule-status" class="text-sm text-muted mt-12">Chargement...</div>
           </div>
         </div>
       </div>

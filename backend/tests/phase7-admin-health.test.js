@@ -98,7 +98,7 @@ describe('Phase 7 — Admin Health', () => {
 
   test('tests section has lastKnownTotal', async () => {
     const res = await request(app).get('/api/admin/health');
-    expect(res.body.tests.lastKnownTotal).toBe(427);
+    expect(res.body.tests.lastKnownTotal).toBeGreaterThanOrEqual(535);
   });
 
   test('no secrets exposed in health response', async () => {

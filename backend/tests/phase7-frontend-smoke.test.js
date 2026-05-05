@@ -40,6 +40,12 @@ describe('Phase 7 — Frontend Smoke', () => {
       expect(htmlContent).toMatch(/Admin Health/);
     });
 
+    test('contains Alert Center view', () => {
+      expect(htmlContent).toMatch(/view-alert-center/);
+      expect(htmlContent).toMatch(/alert-rules-list/);
+      expect(htmlContent).toMatch(/persistent-alerts-list/);
+    });
+
     test('contains export CSV button/link', () => {
       expect(htmlContent).toMatch(/export-audit-csv|Audit CSV/);
     });
@@ -74,6 +80,13 @@ describe('Phase 7 — Frontend Smoke', () => {
       expect(apiContent).toMatch(/getAdminReportMdUrl/);
     });
 
+    test('exports Alert Center APIs', () => {
+      expect(apiContent).toMatch(/getAlertRules/);
+      expect(apiContent).toMatch(/evaluateAlerts/);
+      expect(apiContent).toMatch(/markAlertRead/);
+      expect(apiContent).toMatch(/getAdminReportSchedule/);
+    });
+
     test('getSessions supports pagination params', () => {
       expect(apiContent).toMatch(/getSessions.*params/s);
     });
@@ -86,6 +99,11 @@ describe('Phase 7 — Frontend Smoke', () => {
 
     test('handles system:health_warning events', () => {
       expect(wsContent).toMatch(/system:health_warning/);
+    });
+
+    test('handles alert center websocket events', () => {
+      expect(wsContent).toMatch(/alert:created/);
+      expect(wsContent).toMatch(/alert:read/);
     });
 
     test('maintains notification history', () => {
@@ -116,6 +134,13 @@ describe('Phase 7 — Frontend Smoke', () => {
 
     test('downloadAdminReport function exists', () => {
       expect(appContent).toMatch(/downloadAdminReport/);
+    });
+
+    test('Alert Center functions exist', () => {
+      expect(appContent).toMatch(/loadAlertCenterView/);
+      expect(appContent).toMatch(/createAlertRuleUI/);
+      expect(appContent).toMatch(/loadPersistentAlertsUI/);
+      expect(appContent).toMatch(/saveReportScheduleUI/);
     });
 
     test('sessionsPage pagination function exists', () => {

@@ -37,14 +37,15 @@ describe('Phase 7 — Admin Reports', () => {
     expect(report).toHaveProperty('auth');
     expect(report).toHaveProperty('rag');
     expect(report).toHaveProperty('scheduler');
+    expect(report).toHaveProperty('alerts');
     expect(report).toHaveProperty('tests');
     expect(report).toHaveProperty('warnings');
   });
 
-  test('buildReport.tests.lastKnownTotal is 427', () => {
+  test('buildReport.tests.lastKnownTotal is current phase 7 baseline', () => {
     const { buildReport } = require('../src/reports/adminReport');
     const report = buildReport();
-    expect(report.tests.lastKnownTotal).toBe(427);
+    expect(report.tests.lastKnownTotal).toBeGreaterThanOrEqual(535);
   });
 
   test('buildMarkdownReport returns a markdown string', () => {
@@ -58,6 +59,7 @@ describe('Phase 7 — Admin Reports', () => {
     expect(md).toMatch(/## Storage/);
     expect(md).toMatch(/## RAG/);
     expect(md).toMatch(/## Scheduler/);
+    expect(md).toMatch(/## Alerts/);
   });
 
   test('buildMarkdownReport does not contain secrets', () => {

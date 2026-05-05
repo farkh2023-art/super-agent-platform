@@ -103,6 +103,17 @@ function buildReport() {
   } catch {}
   const schedulerSection = { enabled: schedulerEnabled, schedulesCount, lastRunAt };
 
+  let alertRulesCount = 0;
+  let unreadNotifications = 0;
+  let scheduledReportsEnabled = false;
+  try {
+    const storage = require('../storage');
+    alertRulesCount = storage.findAll('alert_rules').length;
+    unreadNotifications = storage.findAll('notifications').filter((n) => !n.read).length;
+    scheduledReportsEnabled = require('./scheduledAdminReports').getConfig().enabled;
+  } catch {}
+  const alertsSection = { alertRulesCount, unreadNotifications, scheduledReportsEnabled };
+
   let status = 'ok';
   if (warnings.some((w) => w.level === 'critical')) status = 'critical';
   else if (warnings.length > 0) status = 'warning';
@@ -115,7 +126,8 @@ function buildReport() {
     auth: authSection,
     rag: ragSection,
     scheduler: schedulerSection,
-    tests: { lastKnownTotal: 427 },
+    alerts: alertsSection,
+    tests: { lastKnownTotal: 535 },
     warnings,
   };
 }
@@ -174,6 +186,14 @@ function buildMarkdownReport(report) {
     `| Enabled | ${report.scheduler.enabled} |`,
     `| Schedules Count | ${report.scheduler.schedulesCount} |`,
     `| Last Run | ${report.scheduler.lastRunAt || 'N/A'} |`,
+    ``,
+    `## Alerts`,
+    ``,
+    `| Key | Value |`,
+    `|-----|-------|`,
+    `| Alert Rules | ${report.alerts?.alertRulesCount ?? 0} |`,
+    `| Unread Notifications | ${report.alerts?.unreadNotifications ?? 0} |`,
+    `| Scheduled Reports Enabled | ${report.alerts?.scheduledReportsEnabled ?? false} |`,
     ``,
     `## Tests`,
     ``,
