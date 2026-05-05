@@ -214,6 +214,13 @@ const API = {
   updateUser: (id, body) => apiFetch(`/auth/users/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
   deleteUser: (id) => apiFetch(`/auth/users/${id}`, { method: 'DELETE' }),
 
+  // ── Sessions (Phase 6F) ──────────────────────────────────────────────────
+  getSessions: () => apiFetch('/auth/sessions'),
+  revokeSession: (id) => apiFetch(`/auth/sessions/${id}`, { method: 'DELETE' }),
+  revokeAllSessions: (body = {}) => apiFetch('/auth/sessions/revoke-all', { method: 'POST', body: JSON.stringify(body) }),
+  runAuthCleanup: (body = {}) => apiFetch('/auth/cleanup', { method: 'POST', body: JSON.stringify(body) }),
+  getAuthCleanupStatus: () => apiFetch('/auth/cleanup/status'),
+
   // ── Workspaces (Phase 6A/B) ──────────────────────────────────────────────
   getWorkspaces: () => apiFetch('/workspaces'),
   createWorkspace: (body) => apiFetch('/workspaces', { method: 'POST', body: JSON.stringify(body) }),

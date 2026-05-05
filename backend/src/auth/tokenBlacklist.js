@@ -1,19 +1,20 @@
 'use strict';
 
-// In-memory blacklist of revoked JTI values.
-// Cleared on server restart — acceptable because access tokens are short-lived.
-const _blacklist = new Set();
+// Delegates to abstract store (memory or SQLite), selected by ACCESS_BLACKLIST_STORE env var.
+// API is backward-compatible with the previous in-memory implementation.
+const blacklistStore = require('./accessBlacklistStore');
 
-function blacklistToken(jti) {
-  if (jti) _blacklist.add(jti);
+function blacklistToken(jti, expiresAt, metadata) {
+  if (!jti) return;
+  blacklistStore.getStore().add(jti, expiresAt, metadata);
 }
 
 function isBlacklisted(jti) {
-  return jti ? _blacklist.has(jti) : false;
+  return jti ? blacklistStore.getStore().has(jti) : false;
 }
 
-function size() { return _blacklist.size; }
+function size() { return blacklistStore.getStore().count(); }
 
-function clear() { _blacklist.clear(); }
+function clear() { blacklistStore.getStore().clear(); }
 
 module.exports = { blacklistToken, isBlacklisted, size, clear };

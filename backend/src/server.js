@@ -153,6 +153,7 @@ if (require.main === module) {
     console.log(`   Données: ${require('./storage').DATA_DIR}\n`);
     require('./engine/scheduler').start();
     require('./engine/storageMonitor').start(broadcast);
+    require('./auth/authCleanup').startAutoCleanup();
   });
 }
 

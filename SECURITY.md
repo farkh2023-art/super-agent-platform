@@ -164,6 +164,31 @@ Dépendances de production (sans bloat) :
 
 ---
 
+## Phase 6F — Sécurité renforcée
+
+### Blacklist JTI persistante
+- Le JTI (JWT ID) est hashé en SHA-256 avant stockage (jamais en clair)
+- Store auto : SQLite si disponible, mémoire sinon (`ACCESS_BLACKLIST_STORE=auto`)
+- Les entrées expirées sont nettoyées par le service cleanup
+
+### Audit logs
+- IP client capturée depuis `X-Forwarded-For` ou `req.ip`
+- User-Agent capturé et tronqué à 256 caractères
+- Désactivables via `AUDIT_CAPTURE_IP=false` / `AUDIT_CAPTURE_USER_AGENT=false`
+- **Jamais** stocké : header `Authorization`, header `Cookie`, mots de passe, tokens
+
+### Sessions
+- Révocables individuellement depuis l'UI
+- Révocation de toutes ses sessions possible
+- Sessions enrichies avec IP et User-Agent pour détection d'activité suspecte
+
+### Backup
+- `auth.sqlite` exclu par défaut (`BACKUP_INCLUDE_AUTH_DB=false`)
+- Un `auth_summary.json` est inclus avec uniquement des compteurs (sans hash)
+- `password_hash`, `token_hash`, `jti_hash` jamais présents dans le summary
+
+---
+
 ## Signalement de vulnérabilités
 
 Si vous découvrez une vulnérabilité de sécurité, **ne créez pas d'issue publique**. Contactez directement le mainteneur du projet.

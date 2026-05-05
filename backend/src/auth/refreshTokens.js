@@ -33,23 +33,25 @@ function write(tokens) {
   fs.writeFileSync(p, JSON.stringify(tokens, null, 2), 'utf8');
 }
 
-function issueRefreshToken(userId) {
+function issueRefreshToken(userId, meta = {}) {
   const id = crypto.randomUUID();
   const token = crypto.randomBytes(32).toString('hex');
   const tokenHash = hashToken(token);
   const expiresAt = new Date(Date.now() + REFRESH_TTL_MS).toISOString();
   const createdAt = new Date().toISOString();
+  const ipAddress = meta.ipAddress || null;
+  const userAgent = meta.userAgent || null;
 
   const db = authDb.getAuthDb();
   if (db) {
     // Prune expired/revoked entries, then insert
     db.prepare(`DELETE FROM auth_refresh_tokens WHERE expires_at < ? OR revoked_at IS NOT NULL`).run(createdAt);
-    db.prepare(`INSERT INTO auth_refresh_tokens (id, token_hash, user_id, expires_at, revoked_at, created_at) VALUES (?, ?, ?, ?, NULL, ?)`).run(id, tokenHash, userId, expiresAt, createdAt);
+    db.prepare(`INSERT INTO auth_refresh_tokens (id, token_hash, user_id, expires_at, revoked_at, created_at, ip_address, user_agent, last_used_at) VALUES (?, ?, ?, ?, NULL, ?, ?, ?, ?)`).run(id, tokenHash, userId, expiresAt, createdAt, ipAddress, userAgent, createdAt);
   } else {
     const tokens = read();
     const cutoff = new Date();
     const pruned = tokens.filter((t) => !t.revokedAt && new Date(t.expiresAt) > cutoff);
-    pruned.push({ id, tokenHash, userId, expiresAt, revokedAt: null, createdAt });
+    pruned.push({ id, tokenHash, userId, expiresAt, revokedAt: null, createdAt, ipAddress, userAgent, lastUsedAt: createdAt });
     write(pruned);
   }
   return token;
@@ -117,7 +119,7 @@ function listActiveSessions(filterUserId = null) {
   const now = new Date();
   const db = authDb.getAuthDb();
   if (db) {
-    let q = `SELECT id, user_id AS userId, expires_at AS expiresAt, created_at AS createdAt FROM auth_refresh_tokens WHERE revoked_at IS NULL AND expires_at > ?`;
+    let q = `SELECT id, user_id AS userId, expires_at AS expiresAt, created_at AS createdAt, ip_address AS ipAddress, user_agent AS userAgent, last_used_at AS lastUsedAt FROM auth_refresh_tokens WHERE revoked_at IS NULL AND expires_at > ?`;
     const params = [now.toISOString()];
     if (filterUserId) { q += ` AND user_id = ?`; params.push(filterUserId); }
     return db.prepare(q).all(...params);
@@ -126,7 +128,7 @@ function listActiveSessions(filterUserId = null) {
   const tokens = read();
   return tokens
     .filter((t) => !t.revokedAt && new Date(t.expiresAt) > now && (!filterUserId || t.userId === filterUserId))
-    .map(({ id, userId, expiresAt, createdAt }) => ({ id, userId, expiresAt, createdAt }));
+    .map(({ id, userId, expiresAt, createdAt, ipAddress, userAgent, lastUsedAt }) => ({ id, userId, expiresAt, createdAt, ipAddress: ipAddress || null, userAgent: userAgent || null, lastUsedAt: lastUsedAt || null }));
 }
 
 function revokeSessionById(sessionId) {

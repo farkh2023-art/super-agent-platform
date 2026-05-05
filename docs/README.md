@@ -2,9 +2,10 @@
 
 Plateforme web locale pour gérer et orchestrer 10 agents IA spécialisés.
 
-[![Tests](https://img.shields.io/badge/tests-87%2F87%20✅-brightgreen)]()
+[![Tests](https://img.shields.io/badge/tests-427%2F427%20✅-brightgreen)]()
 [![Mode Mock](https://img.shields.io/badge/mode-mock%20(sans%20clé%20API)-yellow)]()
 [![Node.js](https://img.shields.io/badge/node-%3E%3D22-blue)]()
+[![Phase](https://img.shields.io/badge/phase-6F-blue)]()
 
 ---
 

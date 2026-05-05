@@ -12,9 +12,10 @@ const { getAuthMode, setAuthMode } = require('../auth/authConfig');
 const { requireAuth, requireRole } = require('../middleware/requireAuth');
 const { loginRateLimit, refreshRateLimit } = require('../middleware/authRateLimiter');
 const { listAuditLog } = require('../middleware/auditLog');
-const { runCleanup, migrateJsonToSqlite } = require('../auth/sessionManager');
-const { listActiveSessions, revokeSessionById } = require('../auth/refreshTokens');
+const { migrateJsonToSqlite } = require('../auth/sessionManager');
+const { listActiveSessions, revokeSessionById, revokeAllForUser, issueRefreshToken: _issueRefreshToken } = require('../auth/refreshTokens');
 const { isAvailable: authDbAvailable } = require('../auth/authDb');
+const authCleanup = require('../auth/authCleanup');
 
 const router = express.Router();
 const CONFIRMATION = 'I_UNDERSTAND_AUTH_RISK';
@@ -60,7 +61,9 @@ router.post('/login', loginRateLimit, (req, res) => {
   if (user.disabled) return res.status(401).json({ error: 'Account disabled' });
 
   const token = jwt.sign({ id: user.id, username: user.username, role: user.role, workspaceId: user.workspaceId }, accessTtl());
-  const refreshToken = refreshTokens.issueRefreshToken(user.id);
+  const ipAddress = (req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.ip || null;
+  const userAgent = (req.headers['user-agent'] || '').slice(0, 256) || null;
+  const refreshToken = refreshTokens.issueRefreshToken(user.id, { ipAddress, userAgent });
 
   if (cookieMode()) setRefreshCookie(res, refreshToken);
   if (csrfEnabled()) {
@@ -177,18 +180,52 @@ router.get('/sessions', requireAuth, (req, res) => {
   res.json({ sessions });
 });
 
-// DELETE /api/auth/sessions/:id — revoke a session by ID (admin only)
-router.delete('/sessions/:id', requireAuth, requireRole('admin'), (req, res) => {
+// DELETE /api/auth/sessions/:id — revoke a session (admin: any; user: own sessions only)
+router.delete('/sessions/:id', requireAuth, (req, res) => {
+  if (getAuthMode() !== 'multi') return res.status(400).json({ error: 'Not in multi-user mode' });
   const { id } = req.params;
+  const isAdmin = req.user?.role === 'admin';
+  if (!isAdmin) {
+    // Non-admin: verify the session belongs to the current user
+    const userId = req.user?.id || req.user?.userId;
+    const sessions = listActiveSessions(userId);
+    const owns = sessions.some((s) => s.id === id);
+    if (!owns) return res.status(403).json({ error: 'Cannot revoke another user\'s session' });
+  }
   const revoked = revokeSessionById(id);
   if (!revoked) return res.status(404).json({ error: 'Session not found or already revoked' });
   res.json({ success: true });
 });
 
+// POST /api/auth/sessions/revoke-all — revoke all (or all-other) sessions for current user
+router.post('/sessions/revoke-all', requireAuth, (req, res) => {
+  if (getAuthMode() !== 'multi') return res.status(400).json({ error: 'Not in multi-user mode' });
+  const userId = req.user?.id || req.user?.userId;
+  if (!userId) return res.status(401).json({ error: 'Not authenticated' });
+  const { exceptSessionId } = req.body || {};
+  if (exceptSessionId) {
+    const sessions = listActiveSessions(userId);
+    let revoked = 0;
+    for (const s of sessions) {
+      if (s.id !== exceptSessionId) { revokeSessionById(s.id); revoked++; }
+    }
+    return res.json({ success: true, revokedCount: revoked });
+  }
+  revokeAllForUser(userId);
+  res.json({ success: true });
+});
+
+// GET /api/auth/cleanup/status — cleanup service status (admin only)
+router.get('/cleanup/status', requireAuth, requireRole('admin'), (req, res) => {
+  res.json(authCleanup.getStatus());
+});
+
 // POST /api/auth/cleanup — purge expired tokens + old audit entries (admin only)
-router.post('/cleanup', requireAuth, requireRole('admin'), (req, res) => {
+router.post('/cleanup', requireAuth, requireRole('admin'), async (req, res) => {
   const { auditRetentionDays } = req.body || {};
-  const result = runCleanup({ auditRetentionDays: auditRetentionDays ? parseInt(auditRetentionDays, 10) : undefined });
+  const result = await authCleanup.runCleanup({
+    auditRetentionDays: auditRetentionDays ? parseInt(auditRetentionDays, 10) : undefined,
+  });
   res.json(result);
 });
 
@@ -225,8 +262,11 @@ router.post('/set-mode', requireAuth, requireRole('admin'), (req, res) => {
 
 // POST /api/auth/logout — revokes refresh token + blacklists access token
 router.post('/logout', requireAuth, (req, res) => {
-  // Blacklist the current access token's jti
-  if (req.user?.jti) blacklist.blacklistToken(req.user.jti);
+  if (req.user?.jti) {
+    const expiresAt = req.user.exp ? new Date(req.user.exp * 1000).toISOString() : undefined;
+    const userId = req.user.id || req.user.userId || null;
+    blacklist.blacklistToken(req.user.jti, expiresAt, { userId, reason: 'logout' });
+  }
 
   // Revoke refresh token: cookie or body
   const cookies = parseCookies(req);

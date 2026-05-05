@@ -345,3 +345,71 @@ Refuse par defaut si `STORAGE_ADMIN_ALLOW_MUTATIONS=false`. Si active, exige :
 
 ### POST /api/storage/rollback
 Rollback protege avec la meme confirmation. Ne supprime jamais la base SQLite.
+
+---
+
+## Auth — Phase 6F (Sessions, Cleanup, Audit enrichi)
+
+### GET /api/auth/sessions
+Retourne les sessions actives. Admin : toutes sessions. Utilisateur : ses propres sessions.
+
+```json
+{
+  "sessions": [
+    {
+      "id": "uuid",
+      "userId": "...",
+      "expiresAt": "...",
+      "createdAt": "...",
+      "ipAddress": "127.0.0.1",
+      "userAgent": "Mozilla/5.0...",
+      "lastUsedAt": "..."
+    }
+  ]
+}
+```
+
+### DELETE /api/auth/sessions/:id
+Révoque une session. Admin : n'importe quelle session. Utilisateur : seulement ses propres sessions.
+
+### POST /api/auth/sessions/revoke-all
+Révoque toutes les sessions de l'utilisateur courant.
+
+Body optionnel :
+```json
+{ "exceptSessionId": "uuid-to-keep" }
+```
+
+Réponse :
+```json
+{ "success": true, "revokedCount": 3 }
+```
+
+### GET /api/auth/cleanup/status
+Statut du service cleanup (admin uniquement).
+
+```json
+{
+  "running": false,
+  "autoEnabled": false,
+  "intervalMs": 21600000,
+  "lastResult": { ... }
+}
+```
+
+### POST /api/auth/cleanup
+Déclenche un cleanup manuel (admin uniquement).
+
+```json
+{
+  "success": true,
+  "sessionsRemoved": 5,
+  "jtiRemoved": 12,
+  "auditRemoved": 0,
+  "durationMs": 30,
+  "runAt": "2026-05-05T10:00:00.000Z"
+}
+```
+
+### GET /api/auth/audit-log
+Retourne les entrées du journal d'audit. Phase 6F ajoute les champs `ipAddress` et `userAgent`.

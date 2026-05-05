@@ -42,6 +42,7 @@ function navigate(view) {
     case 'metrics':     loadMetricsView(); break;
     case 'workspaces':  loadWorkspacesView(); break;
     case 'audit-log':   loadAuditLogView(); break;
+    case 'sessions':    loadSessionsView(); break;
   }
 }
 
@@ -62,6 +63,7 @@ function updateAuthUI() {
   const bar     = qs('#auth-user-bar');
   const navWs   = qs('#nav-workspaces');
   const navAudit = qs('#nav-audit-log');
+  const navSessions = qs('#nav-sessions');
   const badge    = qs('#execute-workspace-badge');
   const wsName   = qs('#execute-workspace-name');
 
@@ -75,6 +77,7 @@ function updateAuthUI() {
     }
     if (navWs)    navWs.style.display = 'flex';
     if (navAudit) navAudit.style.display = user.role === 'admin' ? 'flex' : 'none';
+    if (navSessions) navSessions.style.display = 'flex';
     const adminUsersSection = qs('#admin-users-section');
     if (adminUsersSection) adminUsersSection.style.display = user.role === 'admin' ? 'block' : 'none';
     if (badge && wsName) {
@@ -89,6 +92,7 @@ function updateAuthUI() {
     if (bar)      bar.style.display = 'none';
     if (navWs)    navWs.style.display = 'none';
     if (navAudit) navAudit.style.display = 'none';
+    if (navSessions) navSessions.style.display = 'none';
     if (badge)    badge.style.display = 'none';
   }
 }
@@ -388,6 +392,8 @@ async function loadAuditLogView() {
               <th style="text-align:left;padding:8px 10px;font-weight:500">Route</th>
               <th style="text-align:left;padding:8px 10px;font-weight:500">Status</th>
               <th style="text-align:left;padding:8px 10px;font-weight:500">Durée</th>
+              <th style="text-align:left;padding:8px 10px;font-weight:500">IP</th>
+              <th style="text-align:left;padding:8px 10px;font-weight:500">User-Agent</th>
             </tr>
           </thead>
           <tbody>
@@ -401,6 +407,8 @@ async function loadAuditLogView() {
                   <span class="badge ${e.statusCode < 300 ? 'badge-completed' : e.statusCode < 500 ? 'badge-pending' : 'badge-error'}">${e.statusCode}</span>
                 </td>
                 <td style="padding:7px 10px;color:var(--text2)">${e.durationMs}ms</td>
+                <td style="padding:7px 10px;color:var(--text2);font-family:var(--mono);font-size:11px">${escHtml(e.ipAddress || '–')}</td>
+                <td style="padding:7px 10px;color:var(--text2);font-size:11px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escHtml(e.userAgent || '')}">${escHtml(e.userAgent ? e.userAgent.slice(0, 30) + (e.userAgent.length > 30 ? '…' : '') : '–')}</td>
               </tr>
             `).join('')}
           </tbody>
@@ -2173,3 +2181,106 @@ window.addEventListener('DOMContentLoaded', async () => {
 
   await initAuth();
 });
+
+// ── Sessions View (Phase 6F) ─────────────────────────────────────────────────
+
+async function loadSessionsView() {
+  const container = qs('#sessions-list');
+  if (!container) return;
+  container.innerHTML = '<div class="text-muted text-sm">Chargement...</div>';
+
+  const isAdmin = state.auth.user?.role === 'admin';
+  const cleanupBtn = qs('#btn-auth-cleanup');
+  if (cleanupBtn) cleanupBtn.style.display = isAdmin ? 'inline-flex' : 'none';
+
+  try {
+    const { sessions } = await API.getSessions();
+    if (!sessions || !sessions.length) {
+      container.innerHTML = '<div class="empty-state"><div class="empty-icon">🔐</div><p>Aucune session active.</p></div>';
+      return;
+    }
+    const currentToken = window.AuthToken.get();
+    let currentJti = null;
+    try { currentJti = JSON.parse(atob(currentToken.split('.')[1])).jti; } catch {}
+
+    container.innerHTML = `
+      <div style="overflow-x:auto">
+        <table style="width:100%;border-collapse:collapse;font-size:12px">
+          <thead>
+            <tr style="color:var(--text2);border-bottom:1px solid var(--border)">
+              ${isAdmin ? '<th style="text-align:left;padding:8px 10px;font-weight:500">Utilisateur</th>' : ''}
+              <th style="text-align:left;padding:8px 10px;font-weight:500">Créée</th>
+              <th style="text-align:left;padding:8px 10px;font-weight:500">Expire</th>
+              <th style="text-align:left;padding:8px 10px;font-weight:500">IP</th>
+              <th style="text-align:left;padding:8px 10px;font-weight:500">User-Agent</th>
+              <th style="text-align:left;padding:8px 10px;font-weight:500">Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${sessions.map((s) => `
+              <tr style="border-bottom:1px solid var(--border)">
+                ${isAdmin ? `<td style="padding:7px 10px;font-weight:500">${escHtml(s.userId || '–')}</td>` : ''}
+                <td style="padding:7px 10px;color:var(--text2);white-space:nowrap">${new Date(s.createdAt).toLocaleString('fr')}</td>
+                <td style="padding:7px 10px;white-space:nowrap">${new Date(s.expiresAt).toLocaleString('fr')}</td>
+                <td style="padding:7px 10px;color:var(--text2);font-family:var(--mono);font-size:11px">${escHtml(s.ipAddress || '–')}</td>
+                <td style="padding:7px 10px;color:var(--text2);font-size:11px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escHtml(s.userAgent || '')}">${escHtml(s.userAgent ? s.userAgent.slice(0, 40) + (s.userAgent.length > 40 ? '…' : '') : '–')}</td>
+                <td style="padding:7px 10px">
+                  <button class="btn btn-sm" style="color:var(--red);font-size:11px" onclick="revokeSession('${escHtml(s.id)}')">Révoquer</button>
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+    `;
+  } catch (err) {
+    const msg = err.message || '';
+    if (msg.includes('401') || msg.includes('Non autorisé')) {
+      container.innerHTML = '<div class="text-muted text-sm">Sessions disponibles en mode multi-utilisateur uniquement.</div>';
+    } else {
+      container.innerHTML = `<div class="text-red">Erreur: ${escHtml(msg)}</div>`;
+    }
+  }
+}
+
+async function revokeSession(id) {
+  if (!confirm('Révoquer cette session ?')) return;
+  try {
+    await API.revokeSession(id);
+    showToast('Session révoquée', 'success');
+    loadSessionsView();
+  } catch (err) {
+    showToast(err.message || 'Erreur lors de la révocation', 'error');
+  }
+}
+
+async function revokeAllOtherSessions() {
+  if (!confirm('Révoquer toutes les autres sessions actives ?')) return;
+  try {
+    const result = await API.revokeAllSessions();
+    showToast(`${result.revokedCount ?? 'Toutes les'} sessions révoquées`, 'success');
+    loadSessionsView();
+  } catch (err) {
+    showToast(err.message || 'Erreur', 'error');
+  }
+}
+
+async function runAdminCleanup() {
+  const resultEl = qs('#cleanup-result');
+  try {
+    const result = await API.runAuthCleanup();
+    if (resultEl) {
+      resultEl.style.display = 'block';
+      resultEl.innerHTML = `<div class="card" style="padding:12px 16px;font-size:12px">
+        <div style="font-weight:600;margin-bottom:6px">Résultat cleanup</div>
+        <div>Sessions supprimées : <strong>${result.sessionsRemoved ?? 0}</strong></div>
+        <div>JTI supprimés : <strong>${result.jtiRemoved ?? 0}</strong></div>
+        <div>Audit supprimés : <strong>${result.auditRemoved ?? 0}</strong></div>
+        <div>Durée : <strong>${result.durationMs ?? 0}ms</strong></div>
+      </div>`;
+    }
+    loadSessionsView();
+  } catch (err) {
+    showToast(err.message || 'Erreur cleanup', 'error');
+  }
+}

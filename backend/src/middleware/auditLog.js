@@ -19,13 +19,26 @@ function logPath() {
   return path.join(base, 'audit-log.json');
 }
 
+function safeUserAgent(ua) {
+  if (!ua || typeof ua !== 'string') return null;
+  // Truncate to avoid storing excessively long strings
+  return ua.slice(0, 256);
+}
+
+function safeIp(req) {
+  const xff = req.headers && req.headers['x-forwarded-for'];
+  if (xff) return String(xff).split(',')[0].trim().slice(0, 64);
+  return (req.ip || req.connection?.remoteAddress || null);
+}
+
 function appendEntry(entry) {
   const db = authDb.getAuthDb();
   if (db) {
     try {
-      db.prepare(`INSERT INTO auth_audit_log (id, user_id, username, workspace_id, method, path, status_code, duration_ms, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
+      db.prepare(`INSERT INTO auth_audit_log (id, user_id, username, workspace_id, method, path, status_code, duration_ms, created_at, ip_address, user_agent) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
         entry.id, entry.userId, entry.username, entry.workspaceId,
         entry.method, entry.path, entry.statusCode, entry.durationMs, entry.createdAt,
+        entry.ipAddress || null, entry.userAgent || null,
       );
     } catch { /* non-blocking */ }
     return;
@@ -51,6 +64,11 @@ function auditLog(req, res, next) {
 
   const start = Date.now();
   const origEnd = res.end.bind(res);
+  const captureIp = String(process.env.AUDIT_CAPTURE_IP || 'true').toLowerCase() !== 'false';
+  const captureUa = String(process.env.AUDIT_CAPTURE_USER_AGENT || 'true').toLowerCase() !== 'false';
+  const ipAddress = captureIp ? safeIp(req) : null;
+  const userAgent = captureUa ? safeUserAgent(req.headers?.['user-agent']) : null;
+
   res.end = function (...args) {
     origEnd(...args);
     appendEntry(sanitizeValue({
@@ -63,6 +81,8 @@ function auditLog(req, res, next) {
       statusCode: res.statusCode,
       durationMs: Date.now() - start,
       createdAt: new Date().toISOString(),
+      ipAddress,
+      userAgent,
     }));
   };
   next();
@@ -73,7 +93,7 @@ function listAuditLog(options = {}) {
   const db = authDb.getAuthDb();
 
   if (db) {
-    let q = `SELECT id, user_id AS userId, username, workspace_id AS workspaceId, method, path, status_code AS statusCode, duration_ms AS durationMs, created_at AS createdAt FROM auth_audit_log WHERE 1=1`;
+    let q = `SELECT id, user_id AS userId, username, workspace_id AS workspaceId, method, path, status_code AS statusCode, duration_ms AS durationMs, created_at AS createdAt, ip_address AS ipAddress, user_agent AS userAgent FROM auth_audit_log WHERE 1=1`;
     const params = [];
     if (options.username) { q += ` AND username = ?`; params.push(options.username); }
     if (options.method) { q += ` AND method = ?`; params.push(String(options.method).toUpperCase()); }

@@ -16,6 +16,7 @@ const evaluator = require('../memory/evaluator');
 const storageEvents = require('../storage/storageEvents');
 const { createSqliteDump, dumpsDir } = require('../storage/sqliteDump');
 const { reportsDir: validationReportsDir } = require('../storage/validationReports');
+const authDb = require('../auth/authDb');
 
 const SENSITIVE_FIELDS = ['anthropicApiKey', 'openaiApiKey', 'password', 'token', 'secret'];
 
@@ -23,6 +24,21 @@ function sanitize(obj) {
   const copy = { ...obj };
   for (const field of SENSITIVE_FIELDS) delete copy[field];
   return copy;
+}
+
+function buildAuthSummary() {
+  const db = authDb.getAuthDb();
+  const now = new Date().toISOString();
+  if (!db) {
+    return { usersCount: 0, activeSessionsCount: 0, revokedSessionsCount: 0, auditEventsCount: 0, blacklistCount: 0, generatedAt: now, note: 'SQLite not enabled' };
+  }
+  const usersCount = db.prepare('SELECT COUNT(*) AS n FROM auth_users WHERE disabled = 0').get().n;
+  const activeSessionsCount = db.prepare('SELECT COUNT(*) AS n FROM auth_refresh_tokens WHERE revoked_at IS NULL AND expires_at > ?').get(now).n;
+  const revokedSessionsCount = db.prepare('SELECT COUNT(*) AS n FROM auth_refresh_tokens WHERE revoked_at IS NOT NULL').get().n;
+  const auditEventsCount = db.prepare('SELECT COUNT(*) AS n FROM auth_audit_log').get().n;
+  let blacklistCount = 0;
+  try { blacklistCount = db.prepare('SELECT COUNT(*) AS n FROM auth_jti_blacklist').get().n; } catch {}
+  return { usersCount, activeSessionsCount, revokedSessionsCount, auditEventsCount, blacklistCount, generatedAt: now };
 }
 
 // GET /api/backup/download
@@ -46,6 +62,9 @@ router.get('/download', (req, res) => {
   archive.pipe(res);
 
   // Manifest
+  const includeAuthDb = String(process.env.BACKUP_INCLUDE_AUTH_DB || 'false').toLowerCase() === 'true';
+  const includeAuthSummary = String(process.env.BACKUP_INCLUDE_AUTH_SUMMARY || 'true').toLowerCase() === 'true';
+
   const manifest = {
     version: '1.0.0',
     createdAt: new Date().toISOString(),
@@ -53,6 +72,8 @@ router.get('/download', (req, res) => {
     embeddingsIncluded: false,
     sqliteDumpIncluded: String(process.env.BACKUP_INCLUDE_SQLITE_DUMP || 'true').toLowerCase() === 'true',
     sqliteRawIncluded: String(process.env.BACKUP_INCLUDE_SQLITE_DB || 'false').toLowerCase() === 'true',
+    authDbIncluded: includeAuthDb,
+    authSummaryIncluded: includeAuthSummary,
     validationReportsIncluded: true,
     collections: ['tasks', 'executions', 'artifacts', 'workflows', 'workflow_runs', 'schedules', 'memory', 'memory_eval_queries', 'memory_evaluation_reports', 'storage_events', 'metrics'],
   };
@@ -104,6 +125,27 @@ router.get('/download', (req, res) => {
     try {
       const dbPath = require('../storage/sqlite').resolveDbPath();
       if (fs.existsSync(dbPath)) archive.file(dbPath, { name: 'sqlite/super-agent-platform.sqlite' });
+    } catch {}
+  }
+
+  // Auth summary (no secrets: no password_hash, no token hashes, no raw tokens)
+  if (includeAuthSummary) {
+    try {
+      const summary = buildAuthSummary();
+      archive.append(Buffer.from(JSON.stringify(summary, null, 2)), { name: 'auth/auth_summary.json' });
+    } catch (err) {
+      archive.append(Buffer.from(JSON.stringify({ unavailable: true, error: err.message }, null, 2)), { name: 'auth/auth_summary.json' });
+    }
+  }
+
+  // auth.sqlite — only if explicitly requested (documents security risk)
+  if (includeAuthDb) {
+    try {
+      const authDbPath = authDb.resolveAuthDbPath();
+      if (fs.existsSync(authDbPath)) {
+        archive.file(authDbPath, { name: 'auth/auth.sqlite' });
+        archive.append(Buffer.from('WARNING: auth.sqlite contains hashed credentials and session data. Keep this backup secure.\n'), { name: 'auth/AUTH_DB_SECURITY_WARNING.txt' });
+      }
     } catch {}
   }
 

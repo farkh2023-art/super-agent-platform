@@ -21,7 +21,10 @@ CREATE TABLE IF NOT EXISTS auth_refresh_tokens (
   user_id TEXT NOT NULL,
   expires_at TEXT NOT NULL,
   revoked_at TEXT,
-  created_at TEXT NOT NULL
+  created_at TEXT NOT NULL,
+  ip_address TEXT,
+  user_agent TEXT,
+  last_used_at TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_art_token_hash ON auth_refresh_tokens(token_hash);
 CREATE INDEX IF NOT EXISTS idx_art_user_id ON auth_refresh_tokens(user_id);
@@ -36,7 +39,9 @@ CREATE TABLE IF NOT EXISTS auth_audit_log (
   path TEXT NOT NULL,
   status_code INTEGER,
   duration_ms INTEGER,
-  created_at TEXT NOT NULL
+  created_at TEXT NOT NULL,
+  ip_address TEXT,
+  user_agent TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_aal_created_at ON auth_audit_log(created_at);
 CREATE INDEX IF NOT EXISTS idx_aal_username ON auth_audit_log(username);
@@ -55,6 +60,19 @@ CREATE TABLE IF NOT EXISTS auth_config (
   value TEXT NOT NULL,
   updated_at TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS auth_jti_blacklist (
+  jti_hash TEXT PRIMARY KEY,
+  user_id TEXT,
+  expires_at TEXT NOT NULL,
+  revoked_at TEXT NOT NULL,
+  reason TEXT,
+  metadata_json TEXT,
+  raw_json TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_ajb_expires_at ON auth_jti_blacklist(expires_at);
+CREATE INDEX IF NOT EXISTS idx_ajb_user_id ON auth_jti_blacklist(user_id);
+CREATE INDEX IF NOT EXISTS idx_ajb_revoked_at ON auth_jti_blacklist(revoked_at);
 `;
 
 let _db = null;
@@ -74,6 +92,21 @@ function isAuthSqliteEnabled() {
   return mode === 'sqlite' || mode === 'hybrid';
 }
 
+function ensureAuthColumn(db, table, name, definition) {
+  try {
+    const cols = db.prepare(`PRAGMA table_info(${table})`).all().map((r) => r.name);
+    if (!cols.includes(name)) db.prepare(`ALTER TABLE ${table} ADD COLUMN ${name} ${definition}`).run();
+  } catch { /* non-blocking */ }
+}
+
+function ensureAuthCompatibleSchema(db) {
+  ensureAuthColumn(db, 'auth_refresh_tokens', 'ip_address', 'TEXT');
+  ensureAuthColumn(db, 'auth_refresh_tokens', 'user_agent', 'TEXT');
+  ensureAuthColumn(db, 'auth_refresh_tokens', 'last_used_at', 'TEXT');
+  ensureAuthColumn(db, 'auth_audit_log', 'ip_address', 'TEXT');
+  ensureAuthColumn(db, 'auth_audit_log', 'user_agent', 'TEXT');
+}
+
 function getAuthDb() {
   if (!isAuthSqliteEnabled()) return null;
   const dbPath = resolveAuthDbPath();
@@ -84,6 +117,7 @@ function getAuthDb() {
   db.pragma('journal_mode = WAL');
   db.pragma('foreign_keys = ON');
   db.exec(AUTH_SCHEMA_SQL);
+  ensureAuthCompatibleSchema(db);
   _db = db;
   _dbPath = dbPath;
   return db;
@@ -102,4 +136,4 @@ function isAvailable() {
   try { getAuthDb(); return true; } catch { return false; }
 }
 
-module.exports = { getAuthDb, closeAuthDb, isAvailable, isAuthSqliteEnabled, resolveAuthDbPath, AUTH_SCHEMA_SQL };
+module.exports = { getAuthDb, closeAuthDb, isAvailable, isAuthSqliteEnabled, resolveAuthDbPath, ensureAuthCompatibleSchema, AUTH_SCHEMA_SQL };

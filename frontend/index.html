@@ -106,6 +106,10 @@
           <span class="nav-icon">🔎</span>
           <span>Audit Log</span>
         </button>
+        <button class="nav-item" data-view="sessions" id="nav-sessions" style="display:none">
+          <span class="nav-icon">🔐</span>
+          <span>Sessions</span>
+        </button>
       </nav>
 
       <div class="sidebar-footer">
@@ -963,6 +967,33 @@ erreur Jest async</textarea>
               <div class="text-muted text-sm">Chargement...</div>
             </div>
           </div>
+        </div>
+      </div>
+
+      <!-- ╔═══════════════════════════════════════╗ -->
+      <!-- ║  SESSIONS (Phase 6F)                  ║ -->
+      <!-- ╚═══════════════════════════════════════╝ -->
+      <div id="view-sessions" class="view" style="display:none">
+        <div class="page-header">
+          <div style="display:flex;align-items:center;justify-content:space-between">
+            <div>
+              <h1>🔐 Sessions actives</h1>
+              <p>Gérez vos sessions et révoquez les accès non autorisés</p>
+            </div>
+            <div style="display:flex;gap:8px">
+              <button class="btn btn-secondary btn-sm" onclick="loadSessionsView()">🔄 Rafraîchir</button>
+              <button class="btn btn-secondary btn-sm" id="btn-revoke-all-sessions" onclick="revokeAllOtherSessions()">🚫 Révoquer autres sessions</button>
+              <button class="btn btn-secondary btn-sm" id="btn-auth-cleanup" style="display:none" onclick="runAdminCleanup()">🧹 Cleanup</button>
+            </div>
+          </div>
+        </div>
+        <div class="page-body">
+          <div class="card">
+            <div id="sessions-list">
+              <div class="text-muted text-sm">Chargement...</div>
+            </div>
+          </div>
+          <div id="cleanup-result" style="display:none;margin-top:12px"></div>
         </div>
       </div>
 
