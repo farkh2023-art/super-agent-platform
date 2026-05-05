@@ -11,6 +11,11 @@
 *.p12
 *.pfx
 
+# Tokens / clés personnelles
+github_pat*.txt
+*personal_access_token*.txt
+*tokens*.txt
+
 # ── Données runtime (générées automatiquement) ───────────────
 backend/data/
 data/
