@@ -59,14 +59,12 @@ router.post('/login', loginRateLimit, (req, res) => {
   const token = jwt.sign({ id: user.id, username: user.username, role: user.role, workspaceId: user.workspaceId }, accessTtl());
   const refreshToken = refreshTokens.issueRefreshToken(user.id);
 
-  if (cookieMode()) {
-    setRefreshCookie(res, refreshToken);
-    if (csrfEnabled()) {
-      const csrfToken = crypto.randomBytes(16).toString('hex');
-      setCsrfCookie(res, csrfToken);
-    }
-    return res.json({ token, expiresIn: accessTtl(), user });
+  if (cookieMode()) setRefreshCookie(res, refreshToken);
+  if (csrfEnabled()) {
+    const csrfToken = crypto.randomBytes(16).toString('hex');
+    setCsrfCookie(res, csrfToken);
   }
+  if (cookieMode()) return res.json({ token, expiresIn: accessTtl(), user });
   res.json({ token, refreshToken, expiresIn: accessTtl(), user });
 });
 
@@ -91,14 +89,12 @@ router.post('/refresh', refreshRateLimit, (req, res) => {
   const newRefreshToken = refreshTokens.issueRefreshToken(user.id);
   const newToken = jwt.sign({ id: user.id, username: user.username, role: user.role, workspaceId: user.workspaceId }, accessTtl());
 
-  if (cookieMode()) {
-    setRefreshCookie(res, newRefreshToken);
-    if (csrfEnabled()) {
-      const csrfToken = crypto.randomBytes(16).toString('hex');
-      setCsrfCookie(res, csrfToken);
-    }
-    return res.json({ token: newToken, expiresIn: accessTtl() });
+  if (cookieMode()) setRefreshCookie(res, newRefreshToken);
+  if (csrfEnabled()) {
+    const csrfToken = crypto.randomBytes(16).toString('hex');
+    setCsrfCookie(res, csrfToken);
   }
+  if (cookieMode()) return res.json({ token: newToken, expiresIn: accessTtl() });
   res.json({ token: newToken, refreshToken: newRefreshToken, expiresIn: accessTtl() });
 });
 
