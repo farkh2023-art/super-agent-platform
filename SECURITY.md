@@ -189,6 +189,35 @@ Dépendances de production (sans bloat) :
 
 ---
 
+## Phase 7 — Observabilité et Rapports Admin
+
+### Admin Health (`GET /api/admin/health`)
+- Aucun secret retourné — uniquement des compteurs et statuts
+- En mode multi: admin uniquement; en mode single: accessible sans auth
+- Les avertissements diffusés via WebSocket ne contiennent pas de secrets
+
+### Export CSV Audit Log
+- L'export CSV n'inclut jamais les headers `Authorization`, `Cookie`, mots de passe ou tokens
+- Colonnes exposées: createdAt, username, userId, workspaceId, method, action, statusCode, ip, userAgent
+- Admin uniquement en mode multi
+
+### Rapports Admin
+- Les fichiers générés dans `backend/data/admin-reports/` sont sanitisés — pas de secrets
+- Inclus dans le backup ZIP (3 derniers) sans contenu sensible
+- Les patterns `password`, `apiKey`, `token_hash`, `jti_hash`, `sk-ant` ne doivent jamais apparaître
+
+### Rate Limit revoke-all
+- `POST /api/auth/sessions/revoke-all` est limité par userId
+- Par défaut: 5 tentatives / 15 minutes
+- Configurable via `REVOKE_ALL_RATE_LIMIT_WINDOW_MS` et `REVOKE_ALL_RATE_LIMIT_MAX`
+
+### WebSocket Notifications
+- Les événements WS ne contiennent pas de secrets
+- Le payload inclut uniquement des compteurs et identifiants non-sensibles
+- L'historique en mémoire frontend est perdu à la déconnexion
+
+---
+
 ## Signalement de vulnérabilités
 
 Si vous découvrez une vulnérabilité de sécurité, **ne créez pas d'issue publique**. Contactez directement le mainteneur du projet.

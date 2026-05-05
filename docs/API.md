@@ -412,4 +412,46 @@ Déclenche un cleanup manuel (admin uniquement).
 ```
 
 ### GET /api/auth/audit-log
-Retourne les entrées du journal d'audit. Phase 6F ajoute les champs `ipAddress` et `userAgent`.
+Retourne les entrées du journal d'audit. Phase 6F ajoute `ipAddress` et `userAgent`. Phase 7 ajoute la pagination.
+
+Query : `limit`, `offset`, `username`, `method`, `action`, `from`, `to`, `statusCode`, `ip`, `userAgent`
+
+Réponse paginée :
+```json
+{ "entries": [], "items": [], "total": 0, "limit": 100, "offset": 0, "hasMore": false }
+```
+
+### GET /api/auth/audit-log/export.csv
+Export CSV du journal d'audit. Admin uniquement. Mêmes filtres que `GET /api/auth/audit-log`.
+
+Colonnes : `createdAt`, `username`, `userId`, `workspaceId`, `method`, `action`, `statusCode`, `ip`, `userAgent`, `resourceType`, `resourceId`
+
+---
+
+## Admin Observability — Phase 7
+
+### GET /api/admin/health
+Tableau de santé système consolidé. Admin en multi mode, accessible en single mode.
+
+```json
+{
+  "status": "ok|warning|critical",
+  "generatedAt": "...",
+  "system": { "uptimeSec": 0, "memory": {}, "nodeVersion": "...", "platform": "..." },
+  "storage": { "mode": "json", "sqliteConnected": false, "lastValidationAt": null, "desyncAlerts": 0 },
+  "auth": { "mode": "single", "activeSessions": 0, "blacklistCount": 0, "cleanupEnabled": false },
+  "rag": { "memoryItems": 0, "embeddingsEnabled": false, "embeddingsCount": 0, "lastEvaluationAt": null },
+  "scheduler": { "enabled": true, "schedulesCount": 0, "lastRunAt": null },
+  "tests": { "lastKnownTotal": 427 },
+  "warnings": []
+}
+```
+
+### GET /api/admin/report.json
+Génère et retourne un rapport admin JSON. Admin uniquement.
+
+### GET /api/admin/report.md
+Génère et retourne un rapport Markdown en téléchargement. Admin uniquement.
+
+### GET /api/admin/reports
+Liste les 20 derniers rapports sauvegardés. Admin uniquement.

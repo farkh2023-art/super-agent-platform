@@ -17,6 +17,7 @@ const storageEvents = require('../storage/storageEvents');
 const { createSqliteDump, dumpsDir } = require('../storage/sqliteDump');
 const { reportsDir: validationReportsDir } = require('../storage/validationReports');
 const authDb = require('../auth/authDb');
+const { reportsDir: adminReportsDir } = require('../reports/adminReport');
 
 const SENSITIVE_FIELDS = ['anthropicApiKey', 'openaiApiKey', 'password', 'token', 'secret'];
 
@@ -163,6 +164,18 @@ router.get('/download', (req, res) => {
       .slice(-5);
     for (const report of vReports) {
       archive.file(path.join(vDir, report), { name: `validation-reports/${report}` });
+    }
+  }
+
+  // Last admin reports (JSON only, no secrets)
+  const aDir = adminReportsDir();
+  if (fs.existsSync(aDir)) {
+    const adminReports = fs.readdirSync(aDir)
+      .filter((f) => /^admin-report-.*\.json$/.test(f))
+      .sort()
+      .slice(-3);
+    for (const f of adminReports) {
+      archive.file(path.join(aDir, f), { name: `admin-reports/${f}` });
     }
   }
 

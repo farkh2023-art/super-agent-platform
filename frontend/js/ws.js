@@ -60,3 +60,19 @@ class WSClient {
 }
 
 window.wsClient = new WSClient();
+
+// ── Notification center ───────────────────────────────────────────────────
+const NOTIFY_EVENTS = new Set([
+  'auth:session_revoked', 'auth:cleanup_completed', 'auth:blacklist_updated',
+  'storage:desync_detected', 'storage:validation_completed',
+  'rag:evaluation_completed', 'scheduler:job_failed', 'system:health_warning',
+]);
+const MAX_NOTIFICATIONS = 50;
+window._notifications = [];
+
+wsClient.on('*', (data) => {
+  if (!data || !NOTIFY_EVENTS.has(data.type)) return;
+  window._notifications.unshift({ ...data, seen: false, id: Date.now() + Math.random() });
+  if (window._notifications.length > MAX_NOTIFICATIONS) window._notifications.length = MAX_NOTIFICATIONS;
+  window.dispatchEvent(new CustomEvent('ws:notification', { detail: data }));
+});

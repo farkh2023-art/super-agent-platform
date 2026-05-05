@@ -326,7 +326,8 @@ describe('Phase 6 — audit log', () => {
     res.end(); // trigger the patched end
 
     expect(endCalled).toBe(true);
-    const entries = listAuditLog({ limit: 10 });
+    const result = listAuditLog({ limit: 10 });
+    const entries = result.items || result;
     expect(entries.length).toBeGreaterThan(0);
     expect(entries[0].method).toBe('POST');
     expect(entries[0].userId).toBe('u1');
@@ -340,7 +341,7 @@ describe('Phase 6 — audit log', () => {
     const res = { statusCode: 200, end: () => {} };
     auditLog(req, res, () => {});
     res.end();
-    expect(listAuditLog().length).toBe(0);
+    expect(listAuditLog().items.length).toBe(0);
   });
 
   test('audit log inactive in single-user mode', () => {
@@ -350,7 +351,7 @@ describe('Phase 6 — audit log', () => {
     const res = { statusCode: 201, end: () => {} };
     auditLog(req, res, () => {});
     res.end();
-    expect(listAuditLog().length).toBe(0);
+    expect(listAuditLog().items.length).toBe(0);
   });
 
   test('audit log entries have no secrets', () => {

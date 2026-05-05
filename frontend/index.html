@@ -110,6 +110,10 @@
           <span class="nav-icon">🔐</span>
           <span>Sessions</span>
         </button>
+        <button class="nav-item" data-view="admin-health" id="nav-admin-health" style="display:none">
+          <span class="nav-icon">🩺</span>
+          <span>Admin Health</span>
+        </button>
       </nav>
 
       <div class="sidebar-footer">
@@ -133,6 +137,14 @@
 
     <!-- ── Main Content ── -->
     <main class="main-content">
+
+      <!-- ╔═══════════════════════════════════════╗ -->
+      <!-- ║  NOTIFICATION BANNER (Phase 7)        ║ -->
+      <!-- ╚═══════════════════════════════════════╝ -->
+      <div id="notification-banner" style="display:none;position:sticky;top:0;z-index:100;background:var(--bg2);border-bottom:1px solid var(--border);padding:6px 16px;display:flex;align-items:center;justify-content:space-between;gap:8px">
+        <div id="notification-list" style="display:flex;gap:8px;flex-wrap:wrap;flex:1;min-width:0"></div>
+        <button class="btn btn-sm btn-secondary" onclick="clearNotifications()" style="flex-shrink:0">✕ Effacer</button>
+      </div>
 
       <!-- ╔═══════════════════════════════════════╗ -->
       <!-- ║  VIEW: DASHBOARD                      ║ -->
@@ -988,12 +1000,78 @@ erreur Jest async</textarea>
           </div>
         </div>
         <div class="page-body">
+          <!-- Pagination controls -->
+          <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px">
+            <button class="btn btn-sm btn-secondary" id="sessions-prev" onclick="sessionsPage(-1)" disabled>‹ Préc</button>
+            <span id="sessions-page-info" class="text-sm text-muted"></span>
+            <button class="btn btn-sm btn-secondary" id="sessions-next" onclick="sessionsPage(1)" disabled>Suiv ›</button>
+          </div>
           <div class="card">
             <div id="sessions-list">
               <div class="text-muted text-sm">Chargement...</div>
             </div>
           </div>
           <div id="cleanup-result" style="display:none;margin-top:12px"></div>
+        </div>
+      </div>
+
+      <!-- ╔═══════════════════════════════════════╗ -->
+      <!-- ║  ADMIN HEALTH (Phase 7)               ║ -->
+      <!-- ╚═══════════════════════════════════════╝ -->
+      <div id="view-admin-health" class="view" style="display:none">
+        <div class="page-header">
+          <div style="display:flex;align-items:center;justify-content:space-between">
+            <div>
+              <h1>🩺 Admin Health</h1>
+              <p>Tableau de santé système consolidé</p>
+            </div>
+            <div style="display:flex;gap:8px">
+              <button class="btn btn-secondary btn-sm" onclick="loadAdminHealthView()">🔄 Rafraîchir</button>
+              <a id="btn-download-report-md" class="btn btn-secondary btn-sm" style="text-decoration:none" href="#" onclick="downloadAdminReport('md');return false">⬇ Rapport MD</a>
+              <a id="btn-download-report-json" class="btn btn-secondary btn-sm" style="text-decoration:none" href="#" onclick="downloadAdminReport('json');return false">⬇ Rapport JSON</a>
+              <a id="btn-export-audit-csv" class="btn btn-secondary btn-sm" style="text-decoration:none" href="#" target="_blank">⬇ Audit CSV</a>
+            </div>
+          </div>
+        </div>
+        <div class="page-body">
+          <!-- Notification history -->
+          <div class="card" id="notif-history-card" style="margin-bottom:16px">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+              <h3 style="margin:0;font-size:15px">🔔 Notifications récentes</h3>
+              <button class="btn btn-sm btn-secondary" onclick="clearNotifications()">Effacer</button>
+            </div>
+            <div id="notif-history-list"><div class="text-muted text-sm">Aucune notification.</div></div>
+          </div>
+
+          <div id="health-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px">
+            <div class="card"><div class="text-muted text-sm">Chargement...</div></div>
+          </div>
+
+          <!-- Paginated Sessions -->
+          <div class="card" style="margin-top:16px">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+              <h3 style="margin:0;font-size:15px">🔐 Sessions (admin)</h3>
+              <div style="display:flex;gap:6px">
+                <button class="btn btn-sm btn-secondary" id="ah-sessions-prev" onclick="ahSessionsPage(-1)" disabled>‹</button>
+                <span id="ah-sessions-info" class="text-sm text-muted"></span>
+                <button class="btn btn-sm btn-secondary" id="ah-sessions-next" onclick="ahSessionsPage(1)" disabled>›</button>
+              </div>
+            </div>
+            <div id="ah-sessions-list"><div class="text-muted text-sm">Chargement...</div></div>
+          </div>
+
+          <!-- Paginated Audit Log -->
+          <div class="card" style="margin-top:16px">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+              <h3 style="margin:0;font-size:15px">🔎 Audit Log (admin)</h3>
+              <div style="display:flex;gap:6px">
+                <button class="btn btn-sm btn-secondary" id="ah-audit-prev" onclick="ahAuditPage(-1)" disabled>‹</button>
+                <span id="ah-audit-info" class="text-sm text-muted"></span>
+                <button class="btn btn-sm btn-secondary" id="ah-audit-next" onclick="ahAuditPage(1)" disabled>›</button>
+              </div>
+            </div>
+            <div id="ah-audit-list"><div class="text-muted text-sm">Chargement...</div></div>
+          </div>
         </div>
       </div>
 

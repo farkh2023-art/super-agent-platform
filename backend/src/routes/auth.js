@@ -10,7 +10,8 @@ const blacklist = require('../auth/tokenBlacklist');
 const { setRefreshCookie, clearRefreshCookie, setCsrfCookie, clearCsrfCookie, parseCookies } = require('../auth/cookieHelper');
 const { getAuthMode, setAuthMode } = require('../auth/authConfig');
 const { requireAuth, requireRole } = require('../middleware/requireAuth');
-const { loginRateLimit, refreshRateLimit } = require('../middleware/authRateLimiter');
+const { loginRateLimit, refreshRateLimit, revokeAllRateLimit } = require('../middleware/authRateLimiter');
+const { notify } = require('../notifications/wsNotifications');
 const { listAuditLog } = require('../middleware/auditLog');
 const { migrateJsonToSqlite } = require('../auth/sessionManager');
 const { listActiveSessions, revokeSessionById, revokeAllForUser, issueRefreshToken: _issueRefreshToken } = require('../auth/refreshTokens');
@@ -165,19 +166,56 @@ router.delete('/users/:id', requireAuth, requireRole('admin'), (req, res) => {
   }
 });
 
-// GET /api/auth/audit-log — admin only, filterable
+// GET /api/auth/audit-log — admin only, filterable + paginated
 router.get('/audit-log', requireAuth, requireRole('admin'), (req, res) => {
-  const { limit, username, method, from, to } = req.query;
-  res.json({ entries: listAuditLog({ limit, username, method, from, to }) });
+  const { limit, offset, username, method, action, from, to, statusCode, ip, userAgent } = req.query;
+  const result = listAuditLog({ limit, offset, username, method, action, from, to, statusCode, ip, userAgent });
+  // backward compat: also expose legacy `entries` field
+  res.json({ entries: result.items, ...result });
 });
 
-// GET /api/auth/sessions — list active sessions (admin: all users; user: own sessions)
+// GET /api/auth/audit-log/export.csv — admin only, CSV download
+router.get('/audit-log/export.csv', requireAuth, requireRole('admin'), (req, res) => {
+  const { limit, offset, username, method, action, from, to, statusCode, ip, userAgent } = req.query;
+  const result = listAuditLog({ limit: limit || 5000, offset, username, method, action, from, to, statusCode, ip, userAgent });
+
+  const COLS = ['createdAt', 'username', 'userId', 'workspaceId', 'method', 'action', 'statusCode', 'ip', 'userAgent', 'resourceType', 'resourceId'];
+  function csvEscape(v) {
+    if (v == null) return '';
+    const s = String(v).replace(/"/g, '""');
+    return /[",\r\n]/.test(s) ? `"${s}"` : s;
+  }
+  const rows = [COLS.join(',')];
+  for (const e of result.items) {
+    rows.push([
+      csvEscape(e.createdAt),
+      csvEscape(e.username),
+      csvEscape(e.userId),
+      csvEscape(e.workspaceId),
+      csvEscape(e.method),
+      csvEscape(e.path),
+      csvEscape(e.statusCode),
+      csvEscape(e.ipAddress),
+      csvEscape(e.userAgent),
+      '',
+      '',
+    ].join(','));
+  }
+  const csv = rows.join('\r\n');
+  res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+  res.setHeader('Content-Disposition', 'attachment; filename="audit-log.csv"');
+  res.send(csv);
+});
+
+// GET /api/auth/sessions — list sessions (admin: all; user: own); paginated
 router.get('/sessions', requireAuth, (req, res) => {
-  if (getAuthMode() !== 'multi') return res.json({ sessions: [] });
+  if (getAuthMode() !== 'multi') return res.json({ sessions: [], items: [], total: 0, limit: 50, offset: 0, hasMore: false });
   const isAdmin = req.user?.role === 'admin';
-  const filterUserId = isAdmin ? null : (req.user?.id || req.user?.userId);
-  const sessions = listActiveSessions(filterUserId);
-  res.json({ sessions });
+  const { limit, offset, active, userId: queryUserId } = req.query;
+  const filterUserId = isAdmin ? (queryUserId || null) : (req.user?.id || req.user?.userId);
+  const result = listActiveSessions(filterUserId, { limit, offset, active });
+  // backward compat: also expose legacy `sessions` field
+  res.json({ sessions: result.items, ...result });
 });
 
 // DELETE /api/auth/sessions/:id — revoke a session (admin: any; user: own sessions only)
@@ -186,33 +224,35 @@ router.delete('/sessions/:id', requireAuth, (req, res) => {
   const { id } = req.params;
   const isAdmin = req.user?.role === 'admin';
   if (!isAdmin) {
-    // Non-admin: verify the session belongs to the current user
     const userId = req.user?.id || req.user?.userId;
-    const sessions = listActiveSessions(userId);
-    const owns = sessions.some((s) => s.id === id);
+    const result = listActiveSessions(userId);
+    const owns = result.items.some((s) => s.id === id);
     if (!owns) return res.status(403).json({ error: 'Cannot revoke another user\'s session' });
   }
   const revoked = revokeSessionById(id);
   if (!revoked) return res.status(404).json({ error: 'Session not found or already revoked' });
+  notify.sessionRevoked({ sessionId: id, revokedBy: req.user?.username || null });
   res.json({ success: true });
 });
 
 // POST /api/auth/sessions/revoke-all — revoke all (or all-other) sessions for current user
-router.post('/sessions/revoke-all', requireAuth, (req, res) => {
+router.post('/sessions/revoke-all', requireAuth, revokeAllRateLimit, (req, res) => {
   if (getAuthMode() !== 'multi') return res.status(400).json({ error: 'Not in multi-user mode' });
   const userId = req.user?.id || req.user?.userId;
   if (!userId) return res.status(401).json({ error: 'Not authenticated' });
   const { exceptSessionId } = req.body || {};
   if (exceptSessionId) {
-    const sessions = listActiveSessions(userId);
-    let revoked = 0;
-    for (const s of sessions) {
-      if (s.id !== exceptSessionId) { revokeSessionById(s.id); revoked++; }
+    const result = listActiveSessions(userId);
+    let revokedCount = 0;
+    for (const s of result.items) {
+      if (s.id !== exceptSessionId) { revokeSessionById(s.id); revokedCount++; }
     }
-    return res.json({ success: true, revokedCount: revoked });
+    notify.sessionRevoked({ userId, revokedCount, exceptSessionId });
+    return res.json({ success: true, revokedCount });
   }
   revokeAllForUser(userId);
-  res.json({ success: true });
+  notify.sessionRevoked({ userId, revokedCount: 'all' });
+  res.json({ success: true, revokedCount: 0 });
 });
 
 // GET /api/auth/cleanup/status — cleanup service status (admin only)
@@ -226,6 +266,9 @@ router.post('/cleanup', requireAuth, requireRole('admin'), async (req, res) => {
   const result = await authCleanup.runCleanup({
     auditRetentionDays: auditRetentionDays ? parseInt(auditRetentionDays, 10) : undefined,
   });
+  if (result.success) {
+    notify.cleanupCompleted({ sessionsRemoved: result.sessionsRemoved, jtiRemoved: result.jtiRemoved, auditRemoved: result.auditRemoved });
+  }
   res.json(result);
 });
 

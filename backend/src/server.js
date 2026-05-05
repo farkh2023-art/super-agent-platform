@@ -34,6 +34,7 @@ function broadcast(event) {
 }
 
 setBroadcast(broadcast);
+require('./notifications/wsNotifications').setBroadcastFn(broadcast);
 
 // ── Middleware ────────────────────────────────────────────────────────────────
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3000';
@@ -86,6 +87,7 @@ app.use('/api/metrics', require('./routes/metrics'));
 app.use('/api/memory', require('./routes/memory'));
 app.use('/api/storage', require('./routes/storage'));
 app.use('/api/workspaces', require('./routes/workspaces'));
+app.use('/api/admin', require('./routes/admin'));
 
 // Health check
 app.get('/api/health', (req, res) => {

@@ -60,12 +60,14 @@ function issueRefreshToken(userId, meta = {}) {
 function verifyRefreshToken(candidate) {
   if (!candidate || typeof candidate !== 'string') return null;
   const h = hashToken(candidate);
+  const now = new Date().toISOString();
 
   const db = authDb.getAuthDb();
   if (db) {
     const row = db.prepare(`SELECT id, user_id, expires_at, revoked_at, created_at FROM auth_refresh_tokens WHERE token_hash = ?`).get(h);
     if (!row || row.revoked_at) return null;
     if (new Date(row.expires_at) < new Date()) return null;
+    db.prepare(`UPDATE auth_refresh_tokens SET last_used_at = ? WHERE id = ?`).run(now, row.id);
     return { id: row.id, userId: row.user_id, expiresAt: row.expires_at, createdAt: row.created_at };
   }
 
@@ -75,6 +77,8 @@ function verifyRefreshToken(candidate) {
   if (!entry) return null;
   if (entry.revokedAt) return null;
   if (new Date(entry.expiresAt) < new Date()) return null;
+  entry.lastUsedAt = now;
+  write(tokens);
   return entry;
 }
 
@@ -115,20 +119,36 @@ function revokeAllForUser(userId) {
 }
 
 // Returns active sessions for display — never exposes raw tokens or hashes.
-function listActiveSessions(filterUserId = null) {
+// options: { filterUserId, active, limit, offset }
+function listActiveSessions(filterUserId = null, options = {}) {
   const now = new Date();
+  const limit = Math.max(1, Math.min(parseInt(options.limit || 50, 10), 500));
+  const offset = Math.max(0, parseInt(options.offset || 0, 10));
+  const activeOnly = options.active !== 'false' && options.active !== false;
+
   const db = authDb.getAuthDb();
   if (db) {
-    let q = `SELECT id, user_id AS userId, expires_at AS expiresAt, created_at AS createdAt, ip_address AS ipAddress, user_agent AS userAgent, last_used_at AS lastUsedAt FROM auth_refresh_tokens WHERE revoked_at IS NULL AND expires_at > ?`;
-    const params = [now.toISOString()];
-    if (filterUserId) { q += ` AND user_id = ?`; params.push(filterUserId); }
-    return db.prepare(q).all(...params);
+    let base = `FROM auth_refresh_tokens WHERE 1=1`;
+    const params = [];
+    if (activeOnly) { base += ` AND revoked_at IS NULL AND expires_at > ?`; params.push(now.toISOString()); }
+    else { base += ` AND expires_at > ?`; params.push(now.toISOString()); }
+    if (filterUserId) { base += ` AND user_id = ?`; params.push(filterUserId); }
+
+    const total = db.prepare(`SELECT COUNT(*) AS n ${base}`).get(...params).n;
+    const rows = db.prepare(`SELECT id, user_id AS userId, expires_at AS expiresAt, created_at AS createdAt, ip_address AS ipAddress, user_agent AS userAgent, last_used_at AS lastUsedAt ${base} ORDER BY created_at DESC LIMIT ? OFFSET ?`).all(...params, limit, offset);
+    return { items: rows, total, limit, offset, hasMore: offset + rows.length < total };
   }
 
   const tokens = read();
-  return tokens
-    .filter((t) => !t.revokedAt && new Date(t.expiresAt) > now && (!filterUserId || t.userId === filterUserId))
-    .map(({ id, userId, expiresAt, createdAt, ipAddress, userAgent, lastUsedAt }) => ({ id, userId, expiresAt, createdAt, ipAddress: ipAddress || null, userAgent: userAgent || null, lastUsedAt: lastUsedAt || null }));
+  let filtered = tokens.filter((t) => new Date(t.expiresAt) > now);
+  if (activeOnly) filtered = filtered.filter((t) => !t.revokedAt);
+  if (filterUserId) filtered = filtered.filter((t) => t.userId === filterUserId);
+  filtered = filtered.map(({ id, userId, expiresAt, createdAt, ipAddress, userAgent, lastUsedAt }) =>
+    ({ id, userId, expiresAt, createdAt, ipAddress: ipAddress || null, userAgent: userAgent || null, lastUsedAt: lastUsedAt || null }));
+  filtered.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  const total = filtered.length;
+  const items = filtered.slice(offset, offset + limit);
+  return { items, total, limit, offset, hasMore: offset + items.length < total };
 }
 
 function revokeSessionById(sessionId) {

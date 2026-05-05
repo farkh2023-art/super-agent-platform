@@ -150,7 +150,7 @@ describe('Phase 6E — sessions in SQLite', () => {
     process.env.AUTH_SQLITE = 'true';
     const rt = require('../src/auth/refreshTokens');
     rt.issueRefreshToken('u1');
-    const sessions = rt.listActiveSessions();
+    const { items: sessions } = rt.listActiveSessions();
     expect(sessions.length).toBe(1);
     expect(typeof sessions[0].id).toBe('string');
   });
@@ -163,7 +163,7 @@ describe('Phase 6E — sessions in SQLite', () => {
     const t1 = rt.issueRefreshToken('u1');
     rt.issueRefreshToken('u2');
     rt.revokeRefreshToken(t1);
-    const sessions = rt.listActiveSessions();
+    const { items: sessions } = rt.listActiveSessions();
     expect(sessions.length).toBe(1);
     expect(sessions[0].userId).toBe('u2');
   });
@@ -174,10 +174,10 @@ describe('Phase 6E — sessions in SQLite', () => {
     process.env.AUTH_SQLITE = 'true';
     const rt = require('../src/auth/refreshTokens');
     rt.issueRefreshToken('u1');
-    const sessions = rt.listActiveSessions();
+    const { items: sessions } = rt.listActiveSessions();
     const revoked = rt.revokeSessionById(sessions[0].id);
     expect(revoked).toBe(true);
-    expect(rt.listActiveSessions().length).toBe(0);
+    expect(rt.listActiveSessions().items.length).toBe(0);
   });
 
   test('revokeSessionById returns false for unknown ID', () => {
@@ -196,7 +196,7 @@ describe('Phase 6E — sessions in SQLite', () => {
     rt.issueRefreshToken('alice');
     rt.issueRefreshToken('alice');
     rt.issueRefreshToken('bob');
-    const aliceSessions = rt.listActiveSessions('alice');
+    const { items: aliceSessions } = rt.listActiveSessions('alice');
     expect(aliceSessions.length).toBe(2);
     expect(aliceSessions.every((s) => s.userId === 'alice')).toBe(true);
   });
@@ -566,7 +566,7 @@ describe('Phase 6E — fallback JSON mode', () => {
     rt.issueRefreshToken('json-user');
     rt.issueRefreshToken('json-user');
     rt.revokeAllForUser('json-user');
-    const active = rt.listActiveSessions('json-user');
+    const { items: active } = rt.listActiveSessions('json-user');
     expect(active.length).toBe(0);
   });
 });

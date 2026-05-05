@@ -15,6 +15,9 @@ let state = {
   pages: {
     executions: { offset: 0, limit: 20, total: 0 },
     memory:     { offset: 0, limit: 20, total: 0 },
+    sessions:   { offset: 0, limit: 20, total: 0 },
+    ahSessions: { offset: 0, limit: 10, total: 0 },
+    ahAudit:    { offset: 0, limit: 10, total: 0 },
   },
   auth: { mode: 'single', user: null, workspace: null },
 };
@@ -42,7 +45,8 @@ function navigate(view) {
     case 'metrics':     loadMetricsView(); break;
     case 'workspaces':  loadWorkspacesView(); break;
     case 'audit-log':   loadAuditLogView(); break;
-    case 'sessions':    loadSessionsView(); break;
+    case 'sessions':      loadSessionsView(); break;
+    case 'admin-health':  loadAdminHealthView(); break;
   }
 }
 
@@ -64,6 +68,7 @@ function updateAuthUI() {
   const navWs   = qs('#nav-workspaces');
   const navAudit = qs('#nav-audit-log');
   const navSessions = qs('#nav-sessions');
+  const navAdminHealth = qs('#nav-admin-health');
   const badge    = qs('#execute-workspace-badge');
   const wsName   = qs('#execute-workspace-name');
 
@@ -78,6 +83,7 @@ function updateAuthUI() {
     if (navWs)    navWs.style.display = 'flex';
     if (navAudit) navAudit.style.display = user.role === 'admin' ? 'flex' : 'none';
     if (navSessions) navSessions.style.display = 'flex';
+    if (navAdminHealth) navAdminHealth.style.display = user.role === 'admin' ? 'flex' : 'none';
     const adminUsersSection = qs('#admin-users-section');
     if (adminUsersSection) adminUsersSection.style.display = user.role === 'admin' ? 'block' : 'none';
     if (badge && wsName) {
@@ -93,6 +99,7 @@ function updateAuthUI() {
     if (navWs)    navWs.style.display = 'none';
     if (navAudit) navAudit.style.display = 'none';
     if (navSessions) navSessions.style.display = 'none';
+    if (navAdminHealth) navAdminHealth.style.display = 'none';
     if (badge)    badge.style.display = 'none';
   }
 }
@@ -2184,6 +2191,55 @@ window.addEventListener('DOMContentLoaded', async () => {
 
 // ── Sessions View (Phase 6F) ─────────────────────────────────────────────────
 
+function sessionsPage(dir) {
+  const p = state.pages.sessions;
+  const newOffset = p.offset + dir * p.limit;
+  if (newOffset < 0 || newOffset >= p.total) return;
+  p.offset = newOffset;
+  loadSessionsView();
+}
+
+function renderSessionsTable(items, isAdmin, containerId) {
+  const container = qs(containerId);
+  if (!container) return;
+  if (!items || !items.length) {
+    container.innerHTML = '<div class="empty-state"><div class="empty-icon">🔐</div><p>Aucune session active.</p></div>';
+    return;
+  }
+  container.innerHTML = `
+    <div style="overflow-x:auto">
+      <table style="width:100%;border-collapse:collapse;font-size:12px">
+        <thead>
+          <tr style="color:var(--text2);border-bottom:1px solid var(--border)">
+            ${isAdmin ? '<th style="text-align:left;padding:8px 10px;font-weight:500">Utilisateur</th>' : ''}
+            <th style="text-align:left;padding:8px 10px;font-weight:500">Créée</th>
+            <th style="text-align:left;padding:8px 10px;font-weight:500">Expire</th>
+            <th style="text-align:left;padding:8px 10px;font-weight:500">Dernière utilisée</th>
+            <th style="text-align:left;padding:8px 10px;font-weight:500">IP</th>
+            <th style="text-align:left;padding:8px 10px;font-weight:500">User-Agent</th>
+            <th style="text-align:left;padding:8px 10px;font-weight:500">Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${items.map((s) => `
+            <tr style="border-bottom:1px solid var(--border)">
+              ${isAdmin ? `<td style="padding:7px 10px;font-weight:500">${escHtml(s.userId || '–')}</td>` : ''}
+              <td style="padding:7px 10px;color:var(--text2);white-space:nowrap">${new Date(s.createdAt).toLocaleString('fr')}</td>
+              <td style="padding:7px 10px;white-space:nowrap">${new Date(s.expiresAt).toLocaleString('fr')}</td>
+              <td style="padding:7px 10px;color:var(--text2);white-space:nowrap">${s.lastUsedAt ? new Date(s.lastUsedAt).toLocaleString('fr') : '–'}</td>
+              <td style="padding:7px 10px;color:var(--text2);font-family:var(--mono);font-size:11px">${escHtml(s.ipAddress || '–')}</td>
+              <td style="padding:7px 10px;color:var(--text2);font-size:11px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escHtml(s.userAgent || '')}">${escHtml(s.userAgent ? s.userAgent.slice(0, 35) + (s.userAgent.length > 35 ? '…' : '') : '–')}</td>
+              <td style="padding:7px 10px">
+                <button class="btn btn-sm" style="color:var(--red);font-size:11px" onclick="revokeSession('${escHtml(s.id)}')">Révoquer</button>
+              </td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
 async function loadSessionsView() {
   const container = qs('#sessions-list');
   if (!container) return;
@@ -2193,46 +2249,21 @@ async function loadSessionsView() {
   const cleanupBtn = qs('#btn-auth-cleanup');
   if (cleanupBtn) cleanupBtn.style.display = isAdmin ? 'inline-flex' : 'none';
 
-  try {
-    const { sessions } = await API.getSessions();
-    if (!sessions || !sessions.length) {
-      container.innerHTML = '<div class="empty-state"><div class="empty-icon">🔐</div><p>Aucune session active.</p></div>';
-      return;
-    }
-    const currentToken = window.AuthToken.get();
-    let currentJti = null;
-    try { currentJti = JSON.parse(atob(currentToken.split('.')[1])).jti; } catch {}
+  const p = state.pages.sessions;
 
-    container.innerHTML = `
-      <div style="overflow-x:auto">
-        <table style="width:100%;border-collapse:collapse;font-size:12px">
-          <thead>
-            <tr style="color:var(--text2);border-bottom:1px solid var(--border)">
-              ${isAdmin ? '<th style="text-align:left;padding:8px 10px;font-weight:500">Utilisateur</th>' : ''}
-              <th style="text-align:left;padding:8px 10px;font-weight:500">Créée</th>
-              <th style="text-align:left;padding:8px 10px;font-weight:500">Expire</th>
-              <th style="text-align:left;padding:8px 10px;font-weight:500">IP</th>
-              <th style="text-align:left;padding:8px 10px;font-weight:500">User-Agent</th>
-              <th style="text-align:left;padding:8px 10px;font-weight:500">Action</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${sessions.map((s) => `
-              <tr style="border-bottom:1px solid var(--border)">
-                ${isAdmin ? `<td style="padding:7px 10px;font-weight:500">${escHtml(s.userId || '–')}</td>` : ''}
-                <td style="padding:7px 10px;color:var(--text2);white-space:nowrap">${new Date(s.createdAt).toLocaleString('fr')}</td>
-                <td style="padding:7px 10px;white-space:nowrap">${new Date(s.expiresAt).toLocaleString('fr')}</td>
-                <td style="padding:7px 10px;color:var(--text2);font-family:var(--mono);font-size:11px">${escHtml(s.ipAddress || '–')}</td>
-                <td style="padding:7px 10px;color:var(--text2);font-size:11px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escHtml(s.userAgent || '')}">${escHtml(s.userAgent ? s.userAgent.slice(0, 40) + (s.userAgent.length > 40 ? '…' : '') : '–')}</td>
-                <td style="padding:7px 10px">
-                  <button class="btn btn-sm" style="color:var(--red);font-size:11px" onclick="revokeSession('${escHtml(s.id)}')">Révoquer</button>
-                </td>
-              </tr>
-            `).join('')}
-          </tbody>
-        </table>
-      </div>
-    `;
+  try {
+    const result = await API.getSessions({ limit: p.limit, offset: p.offset });
+    const items = result.items || result.sessions || [];
+    p.total = result.total || items.length;
+
+    const prevBtn = qs('#sessions-prev');
+    const nextBtn = qs('#sessions-next');
+    const info = qs('#sessions-page-info');
+    if (prevBtn) prevBtn.disabled = p.offset <= 0;
+    if (nextBtn) nextBtn.disabled = !result.hasMore;
+    if (info) info.textContent = `${p.offset + 1}–${p.offset + items.length} / ${p.total}`;
+
+    renderSessionsTable(items, isAdmin, '#sessions-list');
   } catch (err) {
     const msg = err.message || '';
     if (msg.includes('401') || msg.includes('Non autorisé')) {
@@ -2282,5 +2313,234 @@ async function runAdminCleanup() {
     loadSessionsView();
   } catch (err) {
     showToast(err.message || 'Erreur cleanup', 'error');
+  }
+}
+
+// ── Notification center (Phase 7) ────────────────────────────────────────────
+
+function renderNotifications() {
+  const list = qs('#notification-list');
+  const banner = qs('#notification-banner');
+  const historyList = qs('#notif-history-list');
+  const notifs = window._notifications || [];
+
+  if (banner) banner.style.display = notifs.length ? 'flex' : 'none';
+
+  const TYPE_LABELS = {
+    'auth:session_revoked': '🔐 Session révoquée',
+    'auth:cleanup_completed': '🧹 Cleanup terminé',
+    'auth:blacklist_updated': '🚫 Blacklist MAJ',
+    'storage:desync_detected': '⚠ Désync storage',
+    'storage:validation_completed': '✅ Validation storage',
+    'rag:evaluation_completed': '📊 Évaluation RAG',
+    'scheduler:job_failed': '❌ Job planificateur échoué',
+    'system:health_warning': '🩺 Alerte santé',
+  };
+
+  if (list) {
+    list.innerHTML = notifs.slice(0, 5).map((n) =>
+      `<span style="background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:3px 8px;font-size:11px;white-space:nowrap">${escHtml(TYPE_LABELS[n.type] || n.type)}</span>`
+    ).join('');
+  }
+
+  if (historyList) {
+    if (!notifs.length) {
+      historyList.innerHTML = '<div class="text-muted text-sm">Aucune notification.</div>';
+    } else {
+      historyList.innerHTML = `<div style="display:flex;flex-direction:column;gap:4px">
+        ${notifs.map((n) => `
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:5px 8px;background:var(--bg3);border-radius:6px;font-size:12px">
+            <span>${escHtml(TYPE_LABELS[n.type] || n.type)}</span>
+            <span style="color:var(--text3);font-size:11px;white-space:nowrap">${n.timestamp ? new Date(n.timestamp).toLocaleTimeString('fr') : ''}</span>
+          </div>
+        `).join('')}
+      </div>`;
+    }
+  }
+}
+
+function clearNotifications() {
+  window._notifications = [];
+  renderNotifications();
+}
+
+window.addEventListener('ws:notification', () => renderNotifications());
+
+// ── Admin Health (Phase 7) ───────────────────────────────────────────────────
+
+let _ahState = { sessions: { offset: 0, limit: 10, total: 0 }, audit: { offset: 0, limit: 10, total: 0 } };
+
+function ahSessionsPage(dir) {
+  const p = _ahState.sessions;
+  const newOffset = p.offset + dir * p.limit;
+  if (newOffset < 0 || newOffset >= p.total) return;
+  p.offset = newOffset;
+  loadAhSessions();
+}
+
+function ahAuditPage(dir) {
+  const p = _ahState.audit;
+  const newOffset = p.offset + dir * p.limit;
+  if (newOffset < 0 || newOffset >= p.total) return;
+  p.offset = newOffset;
+  loadAhAudit();
+}
+
+function healthCard(title, items, status) {
+  const colors = { ok: 'var(--green)', warning: 'var(--yellow)', critical: 'var(--red)' };
+  const statusColor = colors[status] || 'var(--text2)';
+  const rows = Object.entries(items).map(([k, v]) =>
+    `<div style="display:flex;justify-content:space-between;gap:8px;padding:4px 0;border-bottom:1px solid var(--border);font-size:12px">
+       <span style="color:var(--text2)">${escHtml(k)}</span>
+       <span style="font-family:var(--mono)">${escHtml(String(v ?? 'N/A'))}</span>
+     </div>`
+  ).join('');
+  return `<div class="card">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+      <h3 style="margin:0;font-size:14px;flex:1">${escHtml(title)}</h3>
+      ${status ? `<span style="font-size:11px;font-weight:600;color:${statusColor}">${escHtml(status.toUpperCase())}</span>` : ''}
+    </div>
+    ${rows}
+  </div>`;
+}
+
+async function loadAhSessions() {
+  const container = qs('#ah-sessions-list');
+  if (!container) return;
+  container.innerHTML = '<div class="text-muted text-sm">Chargement...</div>';
+  const p = _ahState.sessions;
+  try {
+    const result = await API.getSessions({ limit: p.limit, offset: p.offset });
+    const items = result.items || result.sessions || [];
+    p.total = result.total || items.length;
+    const prevBtn = qs('#ah-sessions-prev');
+    const nextBtn = qs('#ah-sessions-next');
+    const info = qs('#ah-sessions-info');
+    if (prevBtn) prevBtn.disabled = p.offset <= 0;
+    if (nextBtn) nextBtn.disabled = !result.hasMore;
+    if (info) info.textContent = `${p.offset + 1}–${p.offset + items.length} / ${p.total}`;
+    renderSessionsTable(items, true, '#ah-sessions-list');
+  } catch (err) {
+    container.innerHTML = `<div class="text-muted text-sm">${escHtml(err.message || 'Indisponible')}</div>`;
+  }
+}
+
+async function loadAhAudit() {
+  const container = qs('#ah-audit-list');
+  if (!container) return;
+  container.innerHTML = '<div class="text-muted text-sm">Chargement...</div>';
+  const p = _ahState.audit;
+  try {
+    const result = await API.getAuditLog({ limit: p.limit, offset: p.offset });
+    const items = result.items || result.entries || [];
+    p.total = result.total || items.length;
+    const prevBtn = qs('#ah-audit-prev');
+    const nextBtn = qs('#ah-audit-next');
+    const info = qs('#ah-audit-info');
+    if (prevBtn) prevBtn.disabled = p.offset <= 0;
+    if (nextBtn) nextBtn.disabled = !result.hasMore;
+    if (info) info.textContent = `${p.offset + 1}–${p.offset + items.length} / ${p.total}`;
+    if (!items.length) {
+      container.innerHTML = '<div class="empty-state"><p>Aucune entrée.</p></div>';
+      return;
+    }
+    container.innerHTML = `<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:11px">
+      <thead><tr style="color:var(--text2);border-bottom:1px solid var(--border)">
+        <th style="text-align:left;padding:6px 8px">Date</th>
+        <th style="text-align:left;padding:6px 8px">Utilisateur</th>
+        <th style="text-align:left;padding:6px 8px">Méthode</th>
+        <th style="text-align:left;padding:6px 8px">Chemin</th>
+        <th style="text-align:left;padding:6px 8px">Statut</th>
+        <th style="text-align:left;padding:6px 8px">IP</th>
+      </tr></thead>
+      <tbody>${items.map((e) => `<tr style="border-bottom:1px solid var(--border)">
+        <td style="padding:5px 8px;white-space:nowrap">${new Date(e.createdAt).toLocaleString('fr')}</td>
+        <td style="padding:5px 8px">${escHtml(e.username || '–')}</td>
+        <td style="padding:5px 8px;font-family:var(--mono)">${escHtml(e.method || '')}</td>
+        <td style="padding:5px 8px;font-family:var(--mono);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(e.path || '')}</td>
+        <td style="padding:5px 8px;color:${e.statusCode >= 400 ? 'var(--red)' : 'var(--green)'}">${escHtml(String(e.statusCode || ''))}</td>
+        <td style="padding:5px 8px;font-family:var(--mono);font-size:10px">${escHtml(e.ipAddress || '–')}</td>
+      </tr>`).join('')}</tbody>
+    </table></div>`;
+  } catch (err) {
+    container.innerHTML = `<div class="text-muted text-sm">${escHtml(err.message || 'Indisponible')}</div>`;
+  }
+}
+
+async function loadAdminHealthView() {
+  const grid = qs('#health-grid');
+  if (grid) grid.innerHTML = '<div class="card"><div class="text-muted text-sm">Chargement...</div></div>';
+
+  renderNotifications();
+
+  // Update CSV export link
+  const csvLink = qs('#btn-export-audit-csv');
+  if (csvLink) {
+    const token = window.AuthToken.get();
+    csvLink.href = `${window.location.origin}/api/auth/audit-log/export.csv`;
+    if (token) csvLink.href += `?_t=${Date.now()}`;
+  }
+
+  try {
+    const h = await API.getAdminHealth();
+
+    if (grid) {
+      grid.innerHTML = [
+        healthCard('System', {
+          Uptime: `${h.system.uptimeSec}s`,
+          'Heap Used': `${h.system.memory.heapUsed} MB`,
+          'Heap Total': `${h.system.memory.heapTotal} MB`,
+          Node: h.system.nodeVersion,
+          Platform: h.system.platform,
+        }, h.status),
+        healthCard('Storage', {
+          Mode: h.storage.mode,
+          'SQLite Connected': h.storage.sqliteConnected,
+          'Last Validation': h.storage.lastValidationAt || 'N/A',
+          'Desync Alerts': h.storage.desyncAlerts,
+        }),
+        healthCard('Auth', {
+          Mode: h.auth.mode,
+          'Active Sessions': h.auth.activeSessions,
+          'Blacklist Count': h.auth.blacklistCount,
+          'Cleanup Enabled': h.auth.cleanupEnabled,
+        }),
+        healthCard('RAG / Memory', {
+          'Memory Items': h.rag.memoryItems,
+          'Embeddings Enabled': h.rag.embeddingsEnabled,
+          'Embeddings Count': h.rag.embeddingsCount,
+          'Last Evaluation': h.rag.lastEvaluationAt || 'N/A',
+        }),
+        healthCard('Scheduler', {
+          Enabled: h.scheduler.enabled,
+          'Schedules Count': h.scheduler.schedulesCount,
+          'Last Run': h.scheduler.lastRunAt || 'N/A',
+        }),
+        healthCard('Tests', { 'Last Known Total': h.tests.lastKnownTotal }),
+      ].join('');
+    }
+
+    _ahState.sessions.offset = 0;
+    _ahState.audit.offset = 0;
+    await Promise.all([loadAhSessions(), loadAhAudit()]);
+  } catch (err) {
+    if (grid) grid.innerHTML = `<div class="card"><div class="text-red">Erreur: ${escHtml(err.message || '')}</div></div>`;
+  }
+}
+
+async function downloadAdminReport(format) {
+  const url = format === 'md' ? API.getAdminReportMdUrl() : `${window.location.origin}/api/admin/report.json`;
+  const token = window.AuthToken.get();
+  try {
+    const res = await fetch(url, { headers: { 'Authorization': `Bearer ${token}` } });
+    if (!res.ok) { showToast('Erreur téléchargement rapport', 'error'); return; }
+    const blob = await res.blob();
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = format === 'md' ? 'admin-report.md' : 'admin-report.json';
+    a.click();
+    URL.revokeObjectURL(a.href);
+  } catch (err) {
+    showToast(err.message || 'Erreur', 'error');
   }
 }

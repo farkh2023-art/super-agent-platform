@@ -214,12 +214,25 @@ const API = {
   updateUser: (id, body) => apiFetch(`/auth/users/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
   deleteUser: (id) => apiFetch(`/auth/users/${id}`, { method: 'DELETE' }),
 
-  // ── Sessions (Phase 6F) ──────────────────────────────────────────────────
-  getSessions: () => apiFetch('/auth/sessions'),
+  // ── Sessions (Phase 6F / 7) ──────────────────────────────────────────────
+  getSessions: (params = {}) => {
+    const qs = new URLSearchParams(params).toString();
+    return apiFetch(`/auth/sessions${qs ? '?' + qs : ''}`);
+  },
   revokeSession: (id) => apiFetch(`/auth/sessions/${id}`, { method: 'DELETE' }),
   revokeAllSessions: (body = {}) => apiFetch('/auth/sessions/revoke-all', { method: 'POST', body: JSON.stringify(body) }),
   runAuthCleanup: (body = {}) => apiFetch('/auth/cleanup', { method: 'POST', body: JSON.stringify(body) }),
   getAuthCleanupStatus: () => apiFetch('/auth/cleanup/status'),
+
+  // ── Admin Health / Reports (Phase 7) ────────────────────────────────────
+  getAdminHealth: () => apiFetch('/admin/health'),
+  getAdminReportJson: () => apiFetch('/admin/report.json'),
+  getAdminReports: () => apiFetch('/admin/reports'),
+  exportAuditCsv: (params = {}) => {
+    const qs = new URLSearchParams(params).toString();
+    return `${API_BASE}/auth/audit-log/export.csv${qs ? '?' + qs : ''}`;
+  },
+  getAdminReportMdUrl: () => `${API_BASE}/admin/report.md`,
 
   // ── Workspaces (Phase 6A/B) ──────────────────────────────────────────────
   getWorkspaces: () => apiFetch('/workspaces'),

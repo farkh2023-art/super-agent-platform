@@ -2,12 +2,15 @@
 
 const { getAuthMode } = require('../auth/authConfig');
 
-const WINDOW_MS  = () => parseInt(process.env.LOGIN_RATE_LIMIT_WINDOW_MS || '900000', 10);
-const MAX_LOGIN  = () => parseInt(process.env.LOGIN_RATE_LIMIT_MAX || '10', 10);
-const MAX_REFRESH = () => parseInt(process.env.REFRESH_RATE_LIMIT_MAX || '30', 10);
+const WINDOW_MS        = () => parseInt(process.env.LOGIN_RATE_LIMIT_WINDOW_MS || '900000', 10);
+const MAX_LOGIN        = () => parseInt(process.env.LOGIN_RATE_LIMIT_MAX || '10', 10);
+const MAX_REFRESH      = () => parseInt(process.env.REFRESH_RATE_LIMIT_MAX || '30', 10);
+const REVOKE_ALL_WINDOW = () => parseInt(process.env.REVOKE_ALL_RATE_LIMIT_WINDOW_MS || '900000', 10);
+const REVOKE_ALL_MAX   = () => parseInt(process.env.REVOKE_ALL_RATE_LIMIT_MAX || '5', 10);
 
-const loginBuckets   = new Map();
-const refreshBuckets = new Map();
+const loginBuckets     = new Map();
+const refreshBuckets   = new Map();
+const revokeAllBuckets = new Map();
 
 function ipKey(req) {
   return req.headers['x-forwarded-for'] || req.ip || 'unknown';
@@ -41,6 +44,13 @@ function refreshRateLimit(req, res, next) {
   next();
 }
 
-function resetBuckets() { loginBuckets.clear(); refreshBuckets.clear(); }
+function revokeAllRateLimit(req, res, next) {
+  if (getAuthMode() !== 'multi') return next();
+  const userId = req.user?.id || req.user?.userId || ipKey(req);
+  if (!checkBucket(revokeAllBuckets, userId, REVOKE_ALL_MAX(), REVOKE_ALL_WINDOW(), res)) return;
+  next();
+}
 
-module.exports = { loginRateLimit, refreshRateLimit, resetBuckets };
+function resetBuckets() { loginBuckets.clear(); refreshBuckets.clear(); revokeAllBuckets.clear(); }
+
+module.exports = { loginRateLimit, refreshRateLimit, revokeAllRateLimit, resetBuckets };

@@ -89,31 +89,45 @@ function auditLog(req, res, next) {
 }
 
 function listAuditLog(options = {}) {
-  const max = Math.max(1, Math.min(parseInt(options.limit || 100, 10), 500));
+  const limit = Math.max(1, Math.min(parseInt(options.limit || 100, 10), 500));
+  const offset = Math.max(0, parseInt(options.offset || 0, 10));
   const db = authDb.getAuthDb();
 
   if (db) {
-    let q = `SELECT id, user_id AS userId, username, workspace_id AS workspaceId, method, path, status_code AS statusCode, duration_ms AS durationMs, created_at AS createdAt, ip_address AS ipAddress, user_agent AS userAgent FROM auth_audit_log WHERE 1=1`;
+    let base = `FROM auth_audit_log WHERE 1=1`;
     const params = [];
-    if (options.username) { q += ` AND username = ?`; params.push(options.username); }
-    if (options.method) { q += ` AND method = ?`; params.push(String(options.method).toUpperCase()); }
-    if (options.from) { q += ` AND created_at >= ?`; params.push(options.from); }
-    if (options.to) { q += ` AND created_at <= ?`; params.push(options.to + 'T23:59:59Z'); }
-    q += ` ORDER BY created_at DESC LIMIT ?`;
-    params.push(max);
-    return db.prepare(q).all(...params);
+    if (options.username)   { base += ` AND username = ?`;        params.push(options.username); }
+    if (options.method)     { base += ` AND method = ?`;          params.push(String(options.method).toUpperCase()); }
+    if (options.action)     { base += ` AND path LIKE ?`;         params.push(`%${options.action}%`); }
+    if (options.from)       { base += ` AND created_at >= ?`;     params.push(options.from); }
+    if (options.to)         { base += ` AND created_at <= ?`;     params.push(options.to + 'T23:59:59Z'); }
+    if (options.statusCode) { base += ` AND status_code = ?`;     params.push(parseInt(options.statusCode, 10)); }
+    if (options.ip)         { base += ` AND ip_address = ?`;      params.push(options.ip); }
+    if (options.userAgent)  { base += ` AND user_agent LIKE ?`;   params.push(`%${options.userAgent}%`); }
+
+    const total = db.prepare(`SELECT COUNT(*) AS n ${base}`).get(...params).n;
+    const sel = `SELECT id, user_id AS userId, username, workspace_id AS workspaceId, method, path, status_code AS statusCode, duration_ms AS durationMs, created_at AS createdAt, ip_address AS ipAddress, user_agent AS userAgent ${base} ORDER BY created_at DESC LIMIT ? OFFSET ?`;
+    const items = db.prepare(sel).all(...params, limit, offset);
+    return { items, total, limit, offset, hasMore: offset + items.length < total };
   }
 
   try {
     const p = logPath();
-    if (!fs.existsSync(p)) return [];
+    if (!fs.existsSync(p)) return { items: [], total: 0, limit, offset, hasMore: false };
     let log = JSON.parse(fs.readFileSync(p, 'utf8'));
-    if (options.username) log = log.filter((e) => e.username === options.username);
-    if (options.method)   log = log.filter((e) => e.method === String(options.method).toUpperCase());
-    if (options.from)     log = log.filter((e) => new Date(e.createdAt) >= new Date(options.from));
-    if (options.to)       log = log.filter((e) => new Date(e.createdAt) <= new Date(options.to + 'T23:59:59Z'));
-    return log.slice(-max).reverse();
-  } catch { return []; }
+    if (options.username)   log = log.filter((e) => e.username === options.username);
+    if (options.method)     log = log.filter((e) => e.method === String(options.method).toUpperCase());
+    if (options.action)     log = log.filter((e) => e.path && e.path.includes(options.action));
+    if (options.from)       log = log.filter((e) => new Date(e.createdAt) >= new Date(options.from));
+    if (options.to)         log = log.filter((e) => new Date(e.createdAt) <= new Date(options.to + 'T23:59:59Z'));
+    if (options.statusCode) log = log.filter((e) => e.statusCode === parseInt(options.statusCode, 10));
+    if (options.ip)         log = log.filter((e) => e.ipAddress === options.ip);
+    if (options.userAgent)  log = log.filter((e) => e.userAgent && e.userAgent.includes(options.userAgent));
+    log = log.slice().reverse();
+    const total = log.length;
+    const items = log.slice(offset, offset + limit);
+    return { items, total, limit, offset, hasMore: offset + items.length < total };
+  } catch { return { items: [], total: 0, limit, offset, hasMore: false }; }
 }
 
 function cleanupOldAuditEntries(retentionDays = AUDIT_RETENTION_DAYS) {
