@@ -1,12 +1,12 @@
 [
   {
-    "id": "7f4d83a3-6dca-4f18-8573-ab980395d7f3",
-    "executionId": "2a03e00f-940d-4b31-b9a1-d3ce343622fc",
+    "id": "05410206-9101-4432-bdea-dcb1d1c8e490",
+    "executionId": "05b21cca-76ef-4a1e-b3af-b00c665dcad8",
     "agentId": "sim-fdtd",
     "agentName": "SimAgent – Expert FDTD",
-    "stepId": "e58d5503-6274-4493-9344-477e5742a597",
+    "stepId": "0eb57e02-cc6f-42fd-9e6e-4f51bb4476ab",
     "content": "## Résultats de Simulation FDTD\n\n### Configuration\n- **Méthode** : FDTD (Finite-Difference Time-Domain)\n- **Plage spectrale** : 400–800 nm\n- **Points de fréquence** : 51\n- **Maillage** : adaptatif (raffiné autour de la particule)\n\n### Script Python (MEEP)\n```python\nimport meep as mp\nimport numpy as np\n\n# Nanoparticule d'or - diamètre 60 nm\nr = 0.03  # µm\ngold = mp.Medium(epsilon=mp.lorentzian_susceptibilities_from_file(\"Au_JC.txt\"))\n\ncell = mp.Vector3(0.4, 0.4, 0.4)\ngeometry = [mp.Sphere(radius=r, material=gold)]\nsources = [mp.Source(mp.GaussianSource(fcen=0.5/0.6, fwidth=0.5), mp.Ex, mp.Vector3(-0.15))]\n\nsim = mp.Simulation(cell_size=cell, geometry=geometry, sources=sources, resolution=50)\nsim.run(until=200)\n```\n\n### Résultats\n| Diamètre (nm) | λ_résonance (nm) | σ_abs (nm²) | σ_diff (nm²) |\n|:---:|:---:|:---:|:---:|\n| 20 | 517 | 842 | 156 |\n| 40 | 524 | 4820 | 1890 |\n| 60 | 535 | 12400 | 7600 |\n| 80 | 548 | 24100 | 21800 |\n| 100 | 562 | 38900 | 48200 |\n\n### Conclusion\nLes nanosphères d'or montrent un déplacement bathochrome de la résonance plasmonique avec l'augmentation du diamètre (+0.45 nm/nm). La diffusion domine la dissipation pour d > 60 nm.",
     "format": "markdown",
-    "createdAt": "2026-05-05T18:53:03.283Z"
+    "createdAt": "2026-05-05T21:08:36.774Z"
   }
 ]
