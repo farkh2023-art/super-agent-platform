@@ -12,6 +12,9 @@ const { getAuthMode, setAuthMode } = require('../auth/authConfig');
 const { requireAuth, requireRole } = require('../middleware/requireAuth');
 const { loginRateLimit, refreshRateLimit } = require('../middleware/authRateLimiter');
 const { listAuditLog } = require('../middleware/auditLog');
+const { runCleanup, migrateJsonToSqlite } = require('../auth/sessionManager');
+const { listActiveSessions, revokeSessionById } = require('../auth/refreshTokens');
+const { isAvailable: authDbAvailable } = require('../auth/authDb');
 
 const router = express.Router();
 const CONFIRMATION = 'I_UNDERSTAND_AUTH_RISK';
@@ -163,6 +166,49 @@ router.delete('/users/:id', requireAuth, requireRole('admin'), (req, res) => {
 router.get('/audit-log', requireAuth, requireRole('admin'), (req, res) => {
   const { limit, username, method, from, to } = req.query;
   res.json({ entries: listAuditLog({ limit, username, method, from, to }) });
+});
+
+// GET /api/auth/sessions — list active sessions (admin: all users; user: own sessions)
+router.get('/sessions', requireAuth, (req, res) => {
+  if (getAuthMode() !== 'multi') return res.json({ sessions: [] });
+  const isAdmin = req.user?.role === 'admin';
+  const filterUserId = isAdmin ? null : (req.user?.id || req.user?.userId);
+  const sessions = listActiveSessions(filterUserId);
+  res.json({ sessions });
+});
+
+// DELETE /api/auth/sessions/:id — revoke a session by ID (admin only)
+router.delete('/sessions/:id', requireAuth, requireRole('admin'), (req, res) => {
+  const { id } = req.params;
+  const revoked = revokeSessionById(id);
+  if (!revoked) return res.status(404).json({ error: 'Session not found or already revoked' });
+  res.json({ success: true });
+});
+
+// POST /api/auth/cleanup — purge expired tokens + old audit entries (admin only)
+router.post('/cleanup', requireAuth, requireRole('admin'), (req, res) => {
+  const { auditRetentionDays } = req.body || {};
+  const result = runCleanup({ auditRetentionDays: auditRetentionDays ? parseInt(auditRetentionDays, 10) : undefined });
+  res.json(result);
+});
+
+// POST /api/auth/migrate — migrate JSON auth data to SQLite (admin only)
+router.post('/migrate', requireAuth, requireRole('admin'), (req, res) => {
+  const result = migrateJsonToSqlite();
+  res.json(result);
+});
+
+// GET /api/auth/db-status — auth SQLite status (admin only)
+router.get('/db-status', requireAuth, requireRole('admin'), (req, res) => {
+  const { isAuthSqliteEnabled, resolveAuthDbPath } = require('../auth/authDb');
+  const fs = require('fs');
+  const dbPath = resolveAuthDbPath();
+  res.json({
+    sqliteEnabled: authDbAvailable(),
+    configEnabled: isAuthSqliteEnabled(),
+    dbPath: dbPath.replace(/\\/g, '/').replace(/.*\/data\//, 'data/'),
+    exists: fs.existsSync(dbPath),
+  });
 });
 
 // POST /api/auth/set-mode — admin only

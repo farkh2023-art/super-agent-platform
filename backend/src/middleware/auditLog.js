@@ -5,10 +5,12 @@ const path = require('path');
 const crypto = require('crypto');
 const { getAuthMode } = require('../auth/authConfig');
 const { sanitizeValue } = require('../storage/storageEvents');
+const authDb = require('../auth/authDb');
 
 const MUTATING = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 const SKIP_PATHS = ['/auth/login', '/auth/register'];
 const MAX_ENTRIES = 1000;
+const AUDIT_RETENTION_DAYS = 90;
 
 function logPath() {
   const base = process.env.DATA_DIR
@@ -18,6 +20,17 @@ function logPath() {
 }
 
 function appendEntry(entry) {
+  const db = authDb.getAuthDb();
+  if (db) {
+    try {
+      db.prepare(`INSERT INTO auth_audit_log (id, user_id, username, workspace_id, method, path, status_code, duration_ms, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
+        entry.id, entry.userId, entry.username, entry.workspaceId,
+        entry.method, entry.path, entry.statusCode, entry.durationMs, entry.createdAt,
+      );
+    } catch { /* non-blocking */ }
+    return;
+  }
+
   try {
     const p = logPath();
     fs.mkdirSync(path.dirname(p), { recursive: true });
@@ -56,6 +69,21 @@ function auditLog(req, res, next) {
 }
 
 function listAuditLog(options = {}) {
+  const max = Math.max(1, Math.min(parseInt(options.limit || 100, 10), 500));
+  const db = authDb.getAuthDb();
+
+  if (db) {
+    let q = `SELECT id, user_id AS userId, username, workspace_id AS workspaceId, method, path, status_code AS statusCode, duration_ms AS durationMs, created_at AS createdAt FROM auth_audit_log WHERE 1=1`;
+    const params = [];
+    if (options.username) { q += ` AND username = ?`; params.push(options.username); }
+    if (options.method) { q += ` AND method = ?`; params.push(String(options.method).toUpperCase()); }
+    if (options.from) { q += ` AND created_at >= ?`; params.push(options.from); }
+    if (options.to) { q += ` AND created_at <= ?`; params.push(options.to + 'T23:59:59Z'); }
+    q += ` ORDER BY created_at DESC LIMIT ?`;
+    params.push(max);
+    return db.prepare(q).all(...params);
+  }
+
   try {
     const p = logPath();
     if (!fs.existsSync(p)) return [];
@@ -64,9 +92,28 @@ function listAuditLog(options = {}) {
     if (options.method)   log = log.filter((e) => e.method === String(options.method).toUpperCase());
     if (options.from)     log = log.filter((e) => new Date(e.createdAt) >= new Date(options.from));
     if (options.to)       log = log.filter((e) => new Date(e.createdAt) <= new Date(options.to + 'T23:59:59Z'));
-    const max = Math.max(1, Math.min(parseInt(options.limit || 100, 10), 500));
     return log.slice(-max).reverse();
   } catch { return []; }
 }
 
-module.exports = { auditLog, listAuditLog, logPath };
+function cleanupOldAuditEntries(retentionDays = AUDIT_RETENTION_DAYS) {
+  const cutoff = new Date(Date.now() - retentionDays * 24 * 3600 * 1000).toISOString();
+  const db = authDb.getAuthDb();
+
+  if (db) {
+    const info = db.prepare(`DELETE FROM auth_audit_log WHERE created_at < ?`).run(cutoff);
+    return { deleted: info.changes };
+  }
+
+  try {
+    const p = logPath();
+    if (!fs.existsSync(p)) return { deleted: 0 };
+    const log = JSON.parse(fs.readFileSync(p, 'utf8'));
+    const kept = log.filter((e) => new Date(e.createdAt) >= new Date(cutoff));
+    const deleted = log.length - kept.length;
+    if (deleted > 0) fs.writeFileSync(p, JSON.stringify(kept, null, 2), 'utf8');
+    return { deleted };
+  } catch { return { deleted: 0 }; }
+}
+
+module.exports = { auditLog, listAuditLog, logPath, cleanupOldAuditEntries };
