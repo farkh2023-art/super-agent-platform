@@ -260,3 +260,11 @@ Si vous découvrez une vulnérabilité de sécurité, **ne créez pas d'issue pu
 - Toute mutation admin exige la confirmation exacte `I_UNDERSTAND_STORAGE_RISK`.
 - Les storage events ne doivent jamais stocker de secrets ; les champs `secret`, `token`, `password` et `apiKey` sont rediges.
 - Avant tout passage a `STORAGE_MODE=sqlite`, lancer dry-run, migration avec backup, validation et checksums.
+
+## Phase 8 - Packaging local securise
+
+- `release/create-release.ps1` genere un ZIP dans `dist/releases/` avec `MANIFEST.json` et checksum SHA256.
+- Les packages excluent `.env`, `node_modules`, `backend/data`, `backend/data-test*`, `dist`, SQLite brut, logs runtime, `github_pat*.txt` et fichiers de tokens.
+- `release/demo.ps1` et `release/start.ps1 -Mode demo` utilisent uniquement des variables de session PowerShell et ne modifient pas `.env`.
+- `release/backup.ps1` prefere l'endpoint `/api/backup/download`; le fallback local exclut les secrets connus et SQLite brut sauf demande explicite.
+- Voir [docs/SECURITY_CHECKLIST.md](docs/SECURITY_CHECKLIST.md) avant toute distribution locale.

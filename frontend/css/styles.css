@@ -128,6 +128,54 @@ body {
 
 .page-body { padding: 24px 28px; flex: 1; }
 
+.onboarding-banner {
+  margin: 16px 28px 0;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  border-radius: 8px;
+  padding: 14px 16px;
+}
+.onboarding-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.onboarding-title { font-size: 15px; font-weight: 700; }
+.onboarding-subtitle { color: var(--text2); font-size: 12px; }
+.onboarding-actions { display: flex; gap: 8px; flex-shrink: 0; }
+.onboarding-checklist {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 8px;
+}
+.onboarding-step {
+  background: var(--bg3);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 9px 10px;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+}
+.onboarding-step:hover { border-color: var(--accent); }
+.onboarding-step span {
+  display: inline-flex;
+  width: 20px;
+  height: 20px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: rgba(108,99,255,0.16);
+  color: var(--accent);
+  margin-right: 6px;
+  font-weight: 700;
+}
+
 /* ── Cards ── */
 .card {
   background: var(--bg2);

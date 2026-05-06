@@ -22,6 +22,25 @@ let state = {
   auth: { mode: 'single', user: null, workspace: null },
 };
 
+const ONBOARDING_STORAGE_KEY = 'sap_onboarding_hidden';
+
+function updateOnboardingVisibility() {
+  const banner = qs('#onboarding-banner');
+  if (!banner) return;
+  banner.style.display = localStorage.getItem(ONBOARDING_STORAGE_KEY) === 'true' ? 'none' : 'block';
+}
+
+function hideOnboarding() {
+  localStorage.setItem(ONBOARDING_STORAGE_KEY, 'true');
+  updateOnboardingVisibility();
+}
+
+function resetOnboarding() {
+  localStorage.removeItem(ONBOARDING_STORAGE_KEY);
+  updateOnboardingVisibility();
+  showToast('Onboarding reinitialise', 'success');
+}
+
 // ── Routing ──────────────────────────────────────────────────────────────────
 function navigate(view) {
   state.activeView = view;
@@ -2169,6 +2188,7 @@ wsClient.on('storage_desync', (event) => {
 // ── Init ─────────────────────────────────────────────────────────────────────
 window.addEventListener('DOMContentLoaded', async () => {
   wsClient.connect();
+  updateOnboardingVisibility();
 
   document.querySelectorAll('.nav-item').forEach((el) => {
     el.addEventListener('click', () => navigate(el.dataset.view));

@@ -142,6 +142,27 @@
     <!-- ── Main Content ── -->
     <main class="main-content">
 
+      <div id="onboarding-banner" class="onboarding-banner" style="display:none">
+        <div class="onboarding-header">
+          <div>
+            <div class="onboarding-title">Bienvenue dans Super-Agent Platform</div>
+            <div class="onboarding-subtitle">Checklist de premier lancement local</div>
+          </div>
+          <div class="onboarding-actions">
+            <button class="btn btn-sm btn-secondary" onclick="navigate('execute')">Premiere tache</button>
+            <button class="btn btn-sm btn-secondary" onclick="hideOnboarding()">Masquer</button>
+          </div>
+        </div>
+        <div class="onboarding-checklist">
+          <button class="onboarding-step" onclick="navigate('dashboard')"><span>1</span> Mode demo actif</button>
+          <button class="onboarding-step" onclick="navigate('execute')"><span>2</span> Creer une premiere tache</button>
+          <button class="onboarding-step" onclick="navigate('agents')"><span>3</span> Voir les agents</button>
+          <button class="onboarding-step" onclick="navigate('memory')"><span>4</span> Voir Memory</button>
+          <button class="onboarding-step" onclick="navigate('admin-health')"><span>5</span> Voir Admin Health</button>
+          <button class="onboarding-step" onclick="navigate('settings')"><span>6</span> Faire un backup</button>
+        </div>
+      </div>
+
       <!-- ╔═══════════════════════════════════════╗ -->
       <!-- ║  NOTIFICATION BANNER (Phase 7)        ║ -->
       <!-- ╚═══════════════════════════════════════╝ -->
@@ -611,6 +632,14 @@
                   Télécharge un ZIP de toutes vos données (tâches, exécutions, artefacts, workflows). Aucune clé API n'est incluse.
                 </p>
                 <a href="/api/backup/download" class="btn btn-secondary" download>⬇ Télécharger la sauvegarde ZIP</a>
+              </div>
+
+              <div class="card">
+                <div class="card-title">Onboarding</div>
+                <p style="font-size:13px;color:var(--text2);margin-bottom:12px">
+                  Reaffiche la checklist de premier lancement.
+                </p>
+                <button class="btn btn-secondary" onclick="resetOnboarding()">Reinitialiser onboarding</button>
               </div>
 
               <div class="card">

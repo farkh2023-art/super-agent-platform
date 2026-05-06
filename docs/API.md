@@ -442,7 +442,7 @@ Tableau de santé système consolidé. Admin en multi mode, accessible en single
   "auth": { "mode": "single", "activeSessions": 0, "blacklistCount": 0, "cleanupEnabled": false },
   "rag": { "memoryItems": 0, "embeddingsEnabled": false, "embeddingsCount": 0, "lastEvaluationAt": null },
   "scheduler": { "enabled": true, "schedulesCount": 0, "lastRunAt": null },
-  "tests": { "lastKnownTotal": 427 },
+  "tests": { "lastKnownTotal": 550 },
   "warnings": []
 }
 ```
@@ -455,3 +455,35 @@ Génère et retourne un rapport Markdown en téléchargement. Admin uniquement.
 
 ### GET /api/admin/reports
 Liste les 20 derniers rapports sauvegardés. Admin uniquement.
+
+---
+
+## Alert Center and Scheduled Reports - Phase 7B/8
+
+- `GET /api/admin/alert-rules` lists alert rules.
+- `POST /api/admin/alert-rules` creates a rule.
+- `PUT /api/admin/alert-rules/:id` updates a rule.
+- `DELETE /api/admin/alert-rules/:id` deletes a rule.
+- `POST /api/admin/alerts/evaluate` evaluates rules and creates persistent notifications.
+- `GET /api/admin/alerts` lists notifications with optional `limit` and `unread=true`.
+- `PATCH /api/admin/alerts/:id/read` marks one notification as read and emits `alert:read`.
+- `POST /api/admin/alerts/mark-all-read` marks all notifications as read.
+- `GET /api/admin/report-schedule` returns scheduled report configuration.
+- `PUT /api/admin/report-schedule` updates scheduled report configuration.
+- `POST /api/admin/report-schedule/trigger` generates an admin report immediately.
+
+WebSocket notification events include `alert:created` and `alert:read`.
+
+---
+
+## Local Release Scripts - Phase 8
+
+The release scripts are local PowerShell entrypoints, not API endpoints:
+
+- `release/install.ps1`
+- `release/start.ps1`
+- `release/stop.ps1`
+- `release/demo.ps1`
+- `release/health-check.ps1`
+- `release/backup.ps1`
+- `release/create-release.ps1`

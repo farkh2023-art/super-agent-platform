@@ -1,11 +1,43 @@
 # Super-Agent Platform
 
+> Phase 8: installable local Windows product with PowerShell scripts, demo mode, release ZIP packaging, security checklist and onboarding UI.
+
+## Quick Start Windows
+
+```powershell
+.\release\install.ps1
+.\release\start.ps1 -Mode demo
+.\release\health-check.ps1
+```
+
+Demo mode forces `AI_PROVIDER=mock`, `AUTH_MODE=single` and `STORAGE_MODE=json`. No API key is required.
+
+## Scripts Phase 8
+
+| Script | Role |
+|:--|:--|
+| `release/install.ps1` | Checks Node/npm, installs backend dependencies and prepares `.env` if missing |
+| `release/start.ps1` | Starts the local server and records a PID |
+| `release/stop.ps1` | Stops the recorded local server process |
+| `release/demo.ps1` | Starts demo mode without API keys |
+| `release/health-check.ps1` | Checks local health endpoints |
+| `release/backup.ps1` | Creates a secure local backup |
+| `release/create-release.ps1` | Generates a release ZIP and manifest in `dist/releases/` |
+
+## Packaging Release
+
+```powershell
+.\release\create-release.ps1 -Version v2.4.0-phase-8
+```
+
+The release package excludes `.env`, `node_modules`, runtime data, SQLite files, logs and token-like files.
+
 Plateforme web locale pour gérer et orchestrer 10 agents IA spécialisés.
 
-[![Tests](https://img.shields.io/badge/tests-427%2F427%20✅-brightgreen)]()
+[![Tests](https://img.shields.io/badge/tests-550%2F550%20OK-brightgreen)]()
 [![Mode Mock](https://img.shields.io/badge/mode-mock%20(sans%20clé%20API)-yellow)]()
 [![Node.js](https://img.shields.io/badge/node-%3E%3D22-blue)]()
-[![Phase](https://img.shields.io/badge/phase-6F-blue)]()
+[![Phase](https://img.shields.io/badge/phase-8-blue)]()
 
 ---
 
@@ -80,7 +112,7 @@ npm start        # ou: node src/server.js
 | Filtrage des secrets avant indexation | ✅ |
 | Embeddings Ollama optionnels (`MEMORY_EMBEDDINGS=ollama`) | ✅ |
 | Backup ZIP inclut memory sans secrets | ✅ |
-| Tests backend (129/129) | ✅ |
+| Tests backend (550/550) | ✅ |
 
 ---
 
@@ -165,7 +197,7 @@ Vous pouvez aussi changer le fournisseur depuis l'interface web → **Paramètre
 
 ```bash
 cd backend
-npm test                   # 129 tests (9 suites)
+npm test                   # 550 tests (48 suites)
 npm run test:coverage      # Avec rapport de couverture
 ```
 

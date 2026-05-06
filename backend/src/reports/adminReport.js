@@ -127,7 +127,7 @@ function buildReport() {
     rag: ragSection,
     scheduler: schedulerSection,
     alerts: alertsSection,
-    tests: { lastKnownTotal: 535 },
+    tests: { lastKnownTotal: 550 },
     warnings,
   };
 }
