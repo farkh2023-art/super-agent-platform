@@ -95,6 +95,7 @@ app.use('/api/memory', require('./routes/memory'));
 app.use('/api/storage', require('./routes/storage'));
 app.use('/api/workspaces', require('./routes/workspaces'));
 app.use('/api/admin', require('./routes/admin'));
+app.use('/api/docs', require('./routes/docs'));
 
 // Version info
 app.get('/api/version', (req, res) => {
