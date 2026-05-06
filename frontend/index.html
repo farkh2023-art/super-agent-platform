@@ -98,6 +98,10 @@
           <span>Paramètres</span>
         </button>
         <!-- Auth nav items — visible only in multi-user mode -->
+        <button class="nav-item" data-view="docs">
+          <span class="nav-icon">Docs</span>
+          <span>Documentation</span>
+        </button>
         <button class="nav-item" data-view="workspaces" id="nav-workspaces" style="display:none">
           <span class="nav-icon">🏢</span>
           <span>Workspaces</span>
@@ -918,6 +922,35 @@ erreur Jest async</textarea>
       <!-- ╔═══════════════════════════════════════╗ -->
       <!-- ║  VIEW: WORKSPACES (Phase 6B)          ║ -->
       <!-- ╚═══════════════════════════════════════╝ -->
+      <div id="view-docs" class="view docs-view" style="display:none">
+        <div class="page-header">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+            <div>
+              <h1>Documentation</h1>
+              <p>Guides locaux et notes de release disponibles hors ligne</p>
+            </div>
+            <button class="btn btn-secondary btn-sm" onclick="loadDocsView()">Rafraichir</button>
+          </div>
+        </div>
+        <div class="page-body">
+          <div class="docs-layout">
+            <aside class="docs-sidebar">
+              <input id="docs-search" class="form-input docs-search" placeholder="Rechercher dans les docs"
+                     oninput="renderDocsList(this.value)">
+              <div id="docs-list" class="docs-list">
+                <div class="text-muted text-sm">Chargement...</div>
+              </div>
+            </aside>
+            <section class="docs-reader" id="docs-reader">
+              <div class="empty-state">
+                <div class="empty-icon">Docs</div>
+                <p>Selectionnez un guide dans la liste.</p>
+              </div>
+            </section>
+          </div>
+        </div>
+      </div>
+
       <div id="view-workspaces" class="view" style="display:none">
         <div class="page-header">
           <div style="display:flex;align-items:center;justify-content:space-between">

@@ -140,6 +140,10 @@ const API = {
   // Health
   health: () => apiFetch('/health'),
 
+  // Documentation
+  getDocs: () => apiFetch('/docs'),
+  getDoc: (id) => apiFetch(`/docs/${encodeURIComponent(id)}`),
+
   // Storage / Migration Control
   getStorageStatus: () => apiFetch('/storage/status'),
   getStorageChecksums: () => apiFetch('/storage/checksums'),

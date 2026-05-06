@@ -12,6 +12,7 @@ let state = {
   activeView: 'dashboard',
   settings: { aiProvider: 'mock' },
   wsConnected: false,
+  docs: { items: [], selectedId: null },
   pages: {
     executions: { offset: 0, limit: 20, total: 0 },
     memory:     { offset: 0, limit: 20, total: 0 },
@@ -62,6 +63,7 @@ function navigate(view) {
     case 'schedules':   loadSchedulesView(); break;
     case 'memory':      loadMemoryView(); break;
     case 'metrics':     loadMetricsView(); break;
+    case 'docs':        loadDocsView(); break;
     case 'workspaces':  loadWorkspacesView(); break;
     case 'audit-log':   loadAuditLogView(); break;
     case 'sessions':      loadSessionsView(); break;
@@ -1972,6 +1974,92 @@ async function loadMetricsView() {
   } catch (err) {
     const t = qs('#metrics-agents-table');
     if (t) t.innerHTML = `<div class="text-red" style="padding:20px">Erreur: ${escHtml(err.message)}</div>`;
+  }
+}
+
+// Documentation Center
+async function loadDocsView() {
+  const list = qs('#docs-list');
+  const reader = qs('#docs-reader');
+  if (list) list.innerHTML = '<div class="text-muted text-sm">Chargement...</div>';
+  if (reader && !state.docs.selectedId) {
+    reader.innerHTML = '<div class="empty-state"><div class="empty-icon">Docs</div><p>Selectionnez un guide dans la liste.</p></div>';
+  }
+
+  try {
+    const data = await API.getDocs();
+    state.docs.items = Array.isArray(data.docs) ? data.docs : [];
+    renderDocsList(qs('#docs-search')?.value || '');
+
+    if (!state.docs.selectedId && state.docs.items.length) {
+      await loadDocContent(state.docs.items[0].id);
+    }
+  } catch (err) {
+    if (list) list.innerHTML = `<div class="text-red text-sm">Erreur: ${escHtml(err.message)}</div>`;
+    if (reader) reader.innerHTML = '<div class="empty-state"><p>Documentation indisponible.</p></div>';
+  }
+}
+
+function renderDocsList(query = '') {
+  const list = qs('#docs-list');
+  if (!list) return;
+
+  const q = String(query || '').trim().toLowerCase();
+  const docs = state.docs.items.filter((doc) => {
+    const haystack = `${doc.title || ''} ${doc.category || ''} ${doc.description || ''}`.toLowerCase();
+    return !q || haystack.includes(q);
+  });
+
+  if (!docs.length) {
+    list.innerHTML = '<div class="empty-state" style="padding:20px"><p>Aucun guide trouve.</p></div>';
+    return;
+  }
+
+  const grouped = docs.reduce((acc, doc) => {
+    const category = doc.category || 'documentation';
+    if (!acc[category]) acc[category] = [];
+    acc[category].push(doc);
+    return acc;
+  }, {});
+
+  list.innerHTML = Object.entries(grouped).map(([category, items]) => `
+    <div class="docs-category">
+      <div class="docs-category-title">${escHtml(category)}</div>
+      ${items.map((doc) => `
+        <button class="docs-list-item ${state.docs.selectedId === doc.id ? 'active' : ''}"
+                onclick="loadDocContent('${escHtml(doc.id)}')">
+          <span class="docs-list-title">${escHtml(doc.title)}</span>
+          <span class="docs-list-desc">${escHtml(doc.description || '')}</span>
+        </button>
+      `).join('')}
+    </div>
+  `).join('');
+}
+
+async function loadDocContent(id) {
+  const reader = qs('#docs-reader');
+  if (!reader) return;
+
+  state.docs.selectedId = id;
+  renderDocsList(qs('#docs-search')?.value || '');
+  reader.innerHTML = '<div class="text-muted text-sm">Chargement du guide...</div>';
+
+  try {
+    const doc = await API.getDoc(id);
+    reader.innerHTML = `
+      <div class="docs-reader-header">
+        <button class="btn btn-secondary btn-sm docs-back-btn" onclick="qs('#docs-search')?.focus()">Liste</button>
+        <div>
+          <h2>${escHtml(doc.title)}</h2>
+          <div class="text-muted text-sm">${escHtml(doc.source || '')}</div>
+        </div>
+      </div>
+      <pre class="docs-markdown-text"></pre>
+    `;
+    const text = reader.querySelector('.docs-markdown-text');
+    if (text) text.textContent = doc.content || '';
+  } catch (err) {
+    reader.innerHTML = `<div class="text-red text-sm">Erreur: ${escHtml(err.message)}</div>`;
   }
 }
 

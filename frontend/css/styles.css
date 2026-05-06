@@ -705,6 +705,85 @@ body {
 .migration-event.warning { border-color: rgba(245,158,11,0.45); }
 .migration-event.error { border-color: rgba(239,68,68,0.45); }
 
+/* Documentation Center */
+.docs-layout {
+  display: grid;
+  grid-template-columns: 320px minmax(0, 1fr);
+  gap: 18px;
+  align-items: start;
+}
+.docs-sidebar {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px;
+  position: sticky;
+  top: 92px;
+  max-height: calc(100vh - 120px);
+  overflow-y: auto;
+}
+.docs-search { margin-bottom: 12px; }
+.docs-list { display: flex; flex-direction: column; gap: 12px; }
+.docs-category-title {
+  color: var(--text3);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  margin: 4px 0 6px;
+}
+.docs-list-item {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  text-align: left;
+  background: var(--bg3);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 11px;
+  cursor: pointer;
+  font: inherit;
+  margin-bottom: 6px;
+}
+.docs-list-item:hover,
+.docs-list-item.active {
+  border-color: var(--accent);
+  background: rgba(108,99,255,0.12);
+}
+.docs-list-title { font-size: 13px; font-weight: 700; }
+.docs-list-desc { color: var(--text2); font-size: 11px; line-height: 1.4; }
+.docs-reader {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  min-height: 520px;
+  padding: 18px;
+}
+.docs-reader-header {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  margin-bottom: 14px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+}
+.docs-reader-header h2 { font-size: 18px; margin: 0 0 2px; }
+.docs-back-btn { display: none; }
+.docs-markdown-text {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: var(--mono);
+  font-size: 12px;
+  line-height: 1.65;
+  color: var(--text2);
+  background: #0d1117;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px;
+}
+
 /* ── Tabs ── */
 .tabs { display: flex; gap: 4px; margin-bottom: 16px; border-bottom: 1px solid var(--border); }
 .tab {
@@ -836,6 +915,9 @@ body {
   .main-content { margin-left: 60px; }
   .agents-grid { grid-template-columns: 1fr; }
   .workflow-builder { grid-template-columns: 1fr; }
+  .docs-layout { grid-template-columns: 1fr; }
+  .docs-sidebar { position: static; max-height: none; }
+  .docs-back-btn { display: inline-flex; }
   .memory-eval-layout,
   .memory-eval-form { grid-template-columns: 1fr; }
   .stats-row { gap: 8px; }
