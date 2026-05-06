@@ -1,5 +1,5 @@
 param(
-  [string]$Version = "v2.5.0-phase-8b",
+  [string]$Version = "v2.6.0-phase-8c",
   [switch]$IncludeTests,
   [string]$OutputDir = "dist\releases",
   [switch]$DryRun,
@@ -27,8 +27,19 @@ $ExcludedPatterns = @(
   "*.sqlite",
   "*.sqlite-wal",
   "*.sqlite-shm",
+  "auth.sqlite",
+  "storage-runtime.json",
+  "auth-runtime.json",
+  "*.db",
+  "*.bak",
+  "*_secret*",
+  "*_key*",
+  ".claude/settings.local.json",
   "github_pat*.txt",
+  "*github_pat*",
   "*tokens*.txt",
+  "*.pem",
+  "*.key",
   "logs",
   "*.log"
 )
@@ -118,7 +129,7 @@ $manifest = [ordered]@{
   skippedByRule = ($skipped | Sort-Object -Unique)
   commitGit = $commit
   tag = $tag
-  testsTotalKnown = 567
+  testsTotalKnown = 583
   zip = if ($DryRun) { $null } else { $ZipName }
   checksumSHA256 = $zipHash
   dryRun = [bool]$DryRun

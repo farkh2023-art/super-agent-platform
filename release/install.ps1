@@ -25,6 +25,7 @@ Write-Step "Installing backend dependencies"
 Push-Location $Backend
 try {
   npm install
+  if ($LASTEXITCODE -ne 0) { throw "npm install failed with exit code $LASTEXITCODE" }
 }
 finally {
   Pop-Location

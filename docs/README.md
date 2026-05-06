@@ -1,6 +1,6 @@
 # Super-Agent Platform
 
-> Phase 8: installable local Windows product with PowerShell scripts, demo mode, release ZIP packaging, security checklist and onboarding UI.
+> Phase 8C: installable local Windows product with reproducible local CI, release ZIP verification, demo mode, security checklist and onboarding UI.
 
 ## Quick Start Windows
 
@@ -8,6 +8,7 @@
 .\release\install.ps1
 .\release\start.ps1 -Mode demo
 .\release\health-check.ps1
+.\release\local-ci.ps1 -Version v2.6.0-phase-8c -Strict
 ```
 
 Demo mode forces `AI_PROVIDER=mock`, `AUTH_MODE=single` and `STORAGE_MODE=json`. No API key is required.
@@ -23,21 +24,27 @@ Demo mode forces `AI_PROVIDER=mock`, `AUTH_MODE=single` and `STORAGE_MODE=json`.
 | `release/health-check.ps1` | Checks local health endpoints |
 | `release/backup.ps1` | Creates a secure local backup |
 | `release/create-release.ps1` | Generates a release ZIP and manifest in `dist/releases/` |
+| `release/verify-release.ps1` | Verifies ZIP checksum, structure, forbidden files and sensitive patterns |
+| `release/sign-release.ps1` | Generates a local SHA256 checksum signature |
+| `release/local-ci.ps1` | Runs tests, release build, verification, signature and extracted ZIP test |
+| `release/test-release.ps1` | Tests a release ZIP in a fresh temp directory |
+| `release/cleanup-release-test.ps1` | Cleans release-test temp directories safely |
 
 ## Packaging Release
 
 ```powershell
-.\release\create-release.ps1 -Version v2.5.0-phase-8b
+.\release\create-release.ps1 -Version v2.6.0-phase-8c -Verify -Strict
+.\release\local-ci.ps1 -Version v2.6.0-phase-8c -Strict
 ```
 
-The release package excludes `.env`, `node_modules`, runtime data, SQLite files, logs and token-like files.
+The release package excludes `.env`, `node_modules`, runtime data, SQLite/database files, logs, local-only settings and token-like files. Local CI writes `LOCAL_CI_REPORT.json` and `LOCAL_CI_REPORT.md`.
 
 Plateforme web locale pour gérer et orchestrer 10 agents IA spécialisés.
 
-[![Tests](https://img.shields.io/badge/tests-567%2F567%20OK-brightgreen)]()
+[![Tests](https://img.shields.io/badge/tests-583%2F583%20OK-brightgreen)]()
 [![Mode Mock](https://img.shields.io/badge/mode-mock%20(sans%20clé%20API)-yellow)]()
 [![Node.js](https://img.shields.io/badge/node-%3E%3D22-blue)]()
-[![Phase](https://img.shields.io/badge/phase-8-blue)]()
+[![Phase](https://img.shields.io/badge/phase-8C-blue)]()
 
 ---
 

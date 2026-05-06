@@ -19,7 +19,7 @@ Demo mode uses `AI_PROVIDER=mock`, `AUTH_MODE=single` and `STORAGE_MODE=json`. N
 ## Release Packaging
 
 ```powershell
-.\release\create-release.ps1 -Version v2.5.0-phase-8b
+.\release\create-release.ps1 -Version v2.6.0-phase-8c
 ```
 
 The ZIP is written to `dist/releases/` and excludes `.env`, dependency folders, runtime data, SQLite files and token-like files.
@@ -27,8 +27,9 @@ The ZIP is written to `dist/releases/` and excludes `.env`, dependency folders, 
 Verify and create a local checksum signature:
 
 ```powershell
-.\release\create-release.ps1 -Version v2.5.0-phase-8b -Verify -Strict
-.\release\sign-release.ps1 -ZipPath .\dist\releases\super-agent-platform-v2.5.0-phase-8b.zip
+.\release\create-release.ps1 -Version v2.6.0-phase-8c -Verify -Strict
+.\release\sign-release.ps1 -ZipPath .\dist\releases\super-agent-platform-v2.6.0-phase-8c.zip
+.\release\local-ci.ps1 -Version v2.6.0-phase-8c -Strict
 ```
 
 Optional Windows service and shortcuts are available through dry-run safe scripts:
@@ -46,4 +47,5 @@ Optional Windows service and shortcuts are available through dry-run safe script
 - [Troubleshooting](docs/TROUBLESHOOTING.md)
 - [Security Checklist](docs/SECURITY_CHECKLIST.md)
 - [Non-Technical Installation](docs/INSTALLATION_NON_TECHNIQUE.md)
+- [Phase 8C Local CI](docs/PHASE8C.md)
 - [API Reference](docs/API.md)

@@ -10,6 +10,7 @@
 | Credentials OAuth | tokens, refresh tokens | `.gitignore` → `.env` ignoré |
 | Certificats | `*.pem`, `*.key` | `.gitignore` |
 | Données runtime | `backend/data/` | `.gitignore` |
+| Releases locales | `.env`, `*.sqlite`, `*.db`, `*.bak`, `github_pat*`, `*tokens*.txt` | `verify-release.ps1` et `local-ci.ps1` |
 
 ### Flux de configuration sécurisé
 
@@ -21,6 +22,16 @@
 ```
 
 **Règle absolue** : le fichier `.env` ne doit jamais être commité. Le `.gitignore` le protège, mais vérifiez toujours avant un `git push`.
+
+### Vérification release Phase 8C
+
+Avant de partager une archive locale, lancer :
+
+```powershell
+.\release\local-ci.ps1 -Version v2.6.0-phase-8c -Strict
+```
+
+Cette vérification génère `LOCAL_CI_REPORT.json` et `LOCAL_CI_REPORT.md`, contrôle le ZIP avec `verify-release.ps1`, produit une signature locale SHA256 avec `sign-release.ps1`, puis teste l'installation extraite dans un dossier temporaire. Elle ne remplace pas une signature officielle par certificat.
 
 ---
 

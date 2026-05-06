@@ -14,5 +14,8 @@
 - [ ] Release ZIP excludes `.env`, `node_modules`, runtime data, SQLite and token files.
 - [ ] `verify-release.ps1 -Strict` passes before sharing the ZIP.
 - [ ] `.sha256` and `RELEASE_SIGNATURE.json` are generated with `sign-release.ps1`.
+- [ ] `local-ci.ps1 -Version v2.6.0-phase-8c -Strict` passes before tagging or distributing a release.
+- [ ] `LOCAL_CI_REPORT.json` and `LOCAL_CI_REPORT.md` are reviewed for warnings.
+- [ ] Extracted release tests run only under `$env:TEMP\super-agent-platform-release-test`.
 - [ ] Optional Windows service is installed only from an elevated shell and only when needed.
 - [ ] Uninstall keeps `.env`, data and backups unless removal is explicitly confirmed.

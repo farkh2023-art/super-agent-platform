@@ -1,4 +1,4 @@
-# Final Release Notes - v2.5.0-phase-8b
+# Final Release Notes - v2.6.0-phase-8c
 
 ## Highlights
 
@@ -13,6 +13,11 @@
 - Optional Windows service install/uninstall dry-run support.
 - Local uninstall and shortcut creation scripts.
 - Non-technical installation guide.
+- Reproducible local CI with `local-ci.ps1`.
+- Clean extracted ZIP validation with `test-release.ps1`.
+- Release-test cleanup with `cleanup-release-test.ps1`.
+- `LOCAL_CI_REPORT.json` and `LOCAL_CI_REPORT.md` generated in `dist/releases/`.
+- Stronger release exclusions for runtime DB files, backups, local settings and GitHub PAT files.
 
 ## Known Limits
 
@@ -20,7 +25,8 @@
 - SQLite is optional and must be enabled deliberately after migration checks.
 - Demo mode uses mock AI outputs and does not validate real provider credentials.
 - The generated signature is checksum-based and local, not certificate-backed code signing.
+- Local CI is a Windows local validation flow, not a hosted CI provider.
 
 ## Next Steps
 
-Phase 8C should add certificate-backed signing, CI release verification and optional MSI/MSIX packaging.
+Phase 8D should add certificate-backed signing, optional MSI/MSIX packaging and hosted CI parity.

@@ -4,7 +4,7 @@ Ce guide s'adresse aux utilisateurs qui veulent lancer Super-Agent Platform sans
 
 ## 1. Telecharger et extraire
 
-1. Recuperer le fichier `super-agent-platform-v2.5.0-phase-8b.zip`.
+1. Recuperer le fichier `super-agent-platform-v2.6.0-phase-8c.zip`.
 2. Clic droit -> Extraire tout.
 3. Ouvrir le dossier extrait.
 
@@ -70,6 +70,16 @@ Retirer le service :
 ```powershell
 .\release\uninstall-service.ps1 -DryRun
 ```
+
+## 9. Verification complete
+
+Pour verifier automatiquement une distribution avant de l'utiliser ou de la partager :
+
+```powershell
+.\release\local-ci.ps1 -Version v2.6.0-phase-8c -Strict
+```
+
+Le script cree un rapport dans `dist/releases/LOCAL_CI_REPORT.md`. Il teste aussi une extraction propre du ZIP avec `test-release.ps1`.
 
 ## Problemes courants
 

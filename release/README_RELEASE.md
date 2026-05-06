@@ -23,6 +23,9 @@ Open `http://localhost:3001`.
 - `create-release.ps1` builds `dist/releases/super-agent-platform-<version>.zip` with a manifest and checksum.
 - `verify-release.ps1` verifies a ZIP, forbidden files, checksums and sensitive patterns.
 - `sign-release.ps1` creates a local checksum signature, not certificate-backed code signing.
+- `local-ci.ps1` runs tests, builds the ZIP, verifies it, signs it and tests a clean extraction.
+- `test-release.ps1` extracts a ZIP to a temp folder, installs dependencies, starts demo mode and checks health.
+- `cleanup-release-test.ps1` removes old release-test temp folders and stops only recorded test PIDs.
 - `install-service.ps1` and `uninstall-service.ps1` manage an optional Windows service.
 - `uninstall.ps1` performs local cleanup while keeping user data by default.
 - `create-shortcuts.ps1` creates optional desktop/start menu shortcuts.
@@ -34,8 +37,18 @@ Release ZIPs exclude `.env`, `node_modules`, runtime data, SQLite files, logs an
 ## Verify and Sign
 
 ```powershell
-.\release\create-release.ps1 -Version v2.5.0-phase-8b -Verify -Strict
-.\release\sign-release.ps1 -ZipPath .\dist\releases\super-agent-platform-v2.5.0-phase-8b.zip
+.\release\create-release.ps1 -Version v2.6.0-phase-8c -Verify -Strict
+.\release\sign-release.ps1 -ZipPath .\dist\releases\super-agent-platform-v2.6.0-phase-8c.zip
 ```
 
 Verification reports are written to `dist/releases/VERIFY_REPORT.json` and `.md`.
+
+## Local CI
+
+```powershell
+.\release\local-ci.ps1 -Version v2.6.0-phase-8c -Strict
+.\release\test-release.ps1 -ZipPath .\dist\releases\super-agent-platform-v2.6.0-phase-8c.zip
+.\release\cleanup-release-test.ps1 -DryRun
+```
+
+Local CI writes `dist/releases/LOCAL_CI_REPORT.json` and `dist/releases/LOCAL_CI_REPORT.md`.

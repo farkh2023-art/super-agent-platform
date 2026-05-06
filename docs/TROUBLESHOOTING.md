@@ -54,10 +54,27 @@ Use demo mode or set `AI_PROVIDER=mock`. For local embeddings, install Ollama, s
 Run:
 
 ```powershell
-.\release\verify-release.ps1 -ZipPath .\dist\releases\super-agent-platform-v2.5.0-phase-8b.zip -Strict
+.\release\verify-release.ps1 -ZipPath .\dist\releases\super-agent-platform-v2.6.0-phase-8c.zip -Strict
 ```
 
 Check `dist/releases/VERIFY_REPORT.md`. Common causes are accidental `.env`, SQLite files, runtime data or token files in the package source.
+
+## Local CI Fails
+
+Run:
+
+```powershell
+.\release\local-ci.ps1 -Version v2.6.0-phase-8c -Strict
+```
+
+Then inspect `dist/releases/LOCAL_CI_REPORT.md`. If the failure happens during the extracted release test, retry:
+
+```powershell
+.\release\test-release.ps1 -ZipPath .\dist\releases\super-agent-platform-v2.6.0-phase-8c.zip -KeepTemp
+.\release\cleanup-release-test.ps1 -DryRun
+```
+
+`install.ps1` inside the extracted ZIP may need network access or an npm cache because `node_modules` is never packaged.
 
 ## Windows Service Install Fails
 

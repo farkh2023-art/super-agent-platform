@@ -44,11 +44,29 @@ The script uses the secure API backup if the server is running, otherwise it cre
 ## Verify a Release ZIP
 
 ```powershell
-.\release\verify-release.ps1 -ZipPath .\dist\releases\super-agent-platform-v2.5.0-phase-8b.zip -Strict
-.\release\sign-release.ps1 -ZipPath .\dist\releases\super-agent-platform-v2.5.0-phase-8b.zip
+.\release\verify-release.ps1 -ZipPath .\dist\releases\super-agent-platform-v2.6.0-phase-8c.zip -Strict
+.\release\sign-release.ps1 -ZipPath .\dist\releases\super-agent-platform-v2.6.0-phase-8c.zip
 ```
 
 This creates verification reports and a local checksum signature. It is not certificate-backed code signing.
+
+## Local Reproducible CI
+
+```powershell
+.\release\local-ci.ps1 -Version v2.6.0-phase-8c -Strict
+```
+
+This runs backend tests, builds the ZIP, verifies forbidden files, signs the ZIP by SHA256, extracts it to a clean temp directory, runs `install.ps1`, starts demo mode, checks health and writes:
+
+- `dist/releases/LOCAL_CI_REPORT.json`
+- `dist/releases/LOCAL_CI_REPORT.md`
+
+To test an existing ZIP only:
+
+```powershell
+.\release\test-release.ps1 -ZipPath .\dist\releases\super-agent-platform-v2.6.0-phase-8c.zip
+.\release\cleanup-release-test.ps1 -DryRun
+```
 
 ## Optional Windows Service
 
