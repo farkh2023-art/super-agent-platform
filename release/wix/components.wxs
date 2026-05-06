@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Super-Agent Platform — WiX component list
+  Source paths are relative to the project root (working directory of candle.exe).
+  Compile alongside product.wxs:
+    candle.exe product.wxs components.wxs -out obj\
+    light.exe  obj\product.wixobj obj\components.wixobj -out super-agent-platform.msi
+-->
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+
+  <Fragment>
+    <ComponentGroup Id="FrontendComponents" Directory="INSTALLFOLDER">
+
+      <Component Id="CompFrontendIndexHtml" Guid="{A1B2C3D4-E5F6-0001-0000-000000000001}">
+        <File Id="FileFrontendIndexHtml" Source="frontend\index.html" KeyPath="yes" />
+      </Component>
+
+      <Component Id="CompBackendPackageJson" Guid="{A1B2C3D4-E5F6-0001-0000-000000000002}">
+        <File Id="FileBackendPackageJson" Source="backend\package.json" KeyPath="yes" />
+      </Component>
+
+      <Component Id="CompReleaseStart" Guid="{A1B2C3D4-E5F6-0001-0000-000000000003}">
+        <File Id="FileReleaseStart" Source="release\start.ps1" KeyPath="yes" />
+      </Component>
+
+      <Component Id="CompReleaseStop" Guid="{A1B2C3D4-E5F6-0001-0000-000000000004}">
+        <File Id="FileReleaseStop" Source="release\stop.ps1" KeyPath="yes" />
+      </Component>
+
+      <Component Id="CompReleaseInstall" Guid="{A1B2C3D4-E5F6-0001-0000-000000000005}">
+        <File Id="FileReleaseInstall" Source="release\install.ps1" KeyPath="yes" />
+      </Component>
+
+    </ComponentGroup>
+  </Fragment>
+
+</Wix>
