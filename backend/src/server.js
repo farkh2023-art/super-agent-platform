@@ -10,6 +10,13 @@ const { WebSocketServer } = require('ws');
 const { setBroadcast } = require('./engine/executor');
 const limiter = require('./engine/concurrency');
 
+const fs = require('fs');
+
+const _versionFilePath = path.resolve(__dirname, '../../VERSION');
+const _appVersion = fs.existsSync(_versionFilePath)
+  ? fs.readFileSync(_versionFilePath, 'utf8').trim()
+  : '0.0.0';
+
 const app = express();
 const server = http.createServer(app);
 
@@ -89,11 +96,19 @@ app.use('/api/storage', require('./routes/storage'));
 app.use('/api/workspaces', require('./routes/workspaces'));
 app.use('/api/admin', require('./routes/admin'));
 
+// Version info
+app.get('/api/version', (req, res) => {
+  res.json({
+    version: _appVersion,
+    buildDate: new Date().toISOString(),
+  });
+});
+
 // Health check
 app.get('/api/health', (req, res) => {
   res.json({
     status: 'ok',
-    version: '1.0.0',
+    version: _appVersion,
     provider: process.env.AI_PROVIDER || 'mock',
     uptime: Math.round(process.uptime()),
     timestamp: new Date().toISOString(),
@@ -107,7 +122,7 @@ app.get('/api/health/detailed', (req, res) => {
   const mem = process.memoryUsage();
   res.json({
     status: 'ok',
-    version: '1.0.0',
+    version: _appVersion,
     system: {
       node: process.version,
       platform: process.platform,
