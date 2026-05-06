@@ -23,6 +23,11 @@ function ConvertTo-WixVersion([string]$RawVersion) {
 
 function Build-Msi {
   param([string]$Version, [string]$OutputDir, [string]$CertificatePath, [switch]$DryRun)
+  $WixVersion = ConvertTo-WixVersion $Version
+  if ($DryRun) {
+    Write-Output "  [DRY-RUN] BuildMsi: would build MSI v$WixVersion (WiX not required)"
+    return
+  }
   Write-Host "BuildMsi: checking WiX Toolset prerequisites..." -ForegroundColor Cyan
   $candle = Get-Command candle.exe -ErrorAction SilentlyContinue
   $light  = Get-Command light.exe  -ErrorAction SilentlyContinue
@@ -32,9 +37,7 @@ function Build-Msi {
   }
   Write-Host "  candle.exe : $($candle.Source)" -ForegroundColor Green
   Write-Host "  light.exe  : $($light.Source)"  -ForegroundColor Green
-  $WixVersion = ConvertTo-WixVersion $Version
-  Write-Host "  WixVersion : $WixVersion" -ForegroundColor Green
-  if ($DryRun) { Write-Host "  [DRY-RUN] Would build MSI v$WixVersion" -ForegroundColor Yellow; return }
+  Write-Host "  WixVersion : $WixVersion"        -ForegroundColor Green
   $wxsDir  = Join-Path $PSScriptRoot "wix"
   $objDir  = Join-Path $OutputDir ".wix-obj"
   $msiPath = Join-Path $OutputDir "super-agent-platform-$Version.msi"
@@ -56,6 +59,11 @@ function Build-Msi {
 
 function Build-Msix {
   param([string]$Version, [string]$OutputDir, [string]$CertificatePath, [switch]$DryRun)
+  $MsixVersion = ConvertTo-WixVersion $Version
+  if ($DryRun) {
+    Write-Output "  [DRY-RUN] BuildMsix: would build MSIX v$MsixVersion (makeappx not required)"
+    return
+  }
   Write-Host "BuildMsix: checking makeappx.exe prerequisites..." -ForegroundColor Cyan
   $makeappx = Get-Command makeappx.exe -ErrorAction SilentlyContinue
   if (-not $makeappx) {
@@ -63,9 +71,7 @@ function Build-Msix {
     return
   }
   Write-Host "  makeappx.exe: $($makeappx.Source)" -ForegroundColor Green
-  $MsixVersion = ConvertTo-WixVersion $Version
-  Write-Host "  MsixVersion : $MsixVersion" -ForegroundColor Green
-  if ($DryRun) { Write-Host "  [DRY-RUN] Would build MSIX v$MsixVersion" -ForegroundColor Yellow; return }
+  Write-Host "  MsixVersion : $MsixVersion"         -ForegroundColor Green
   $msixStaging = Join-Path $OutputDir ".msix-staging"
   $msixPath    = Join-Path $OutputDir "super-agent-platform-$Version.msix"
   $manifestSrc = Join-Path $PSScriptRoot "msix\AppxManifest.xml"
