@@ -25,6 +25,7 @@ const notify = {
   healthWarning:       (data = {}) => emit('system:health_warning', data),
   alertCreated:        (data = {}) => emit('alert:created', data),
   alertRead:           (data = {}) => emit('alert:read', data),
+  updateAvailable:     (payload = {}) => emit('update_available', { payload }),
 };
 
 module.exports = { setBroadcastFn, emit, notify };

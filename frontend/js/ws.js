@@ -77,3 +77,12 @@ wsClient.on('*', (data) => {
   if (window._notifications.length > MAX_NOTIFICATIONS) window._notifications.length = MAX_NOTIFICATIONS;
   window.dispatchEvent(new CustomEvent('ws:notification', { detail: data }));
 });
+
+wsClient.on('update_available', (data) => {
+  const payload = data && data.payload ? data.payload : data;
+  const version = payload && (payload.latestVersion || payload.version);
+  if (!version) return;
+  if (typeof window.showUpdateBanner === 'function') {
+    window.showUpdateBanner({ ...payload, latestVersion: payload.latestVersion || version, updateAvailable: true });
+  }
+});

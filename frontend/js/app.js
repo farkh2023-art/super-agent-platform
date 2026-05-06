@@ -21,6 +21,7 @@ let state = {
     ahAudit:    { offset: 0, limit: 10, total: 0 },
   },
   auth: { mode: 'single', user: null, workspace: null },
+  update: { info: null },
 };
 
 const ONBOARDING_STORAGE_KEY = 'sap_onboarding_hidden';
@@ -69,6 +70,7 @@ function navigate(view) {
     case 'sessions':      loadSessionsView(); break;
     case 'admin-health':  loadAdminHealthView(); break;
     case 'alert-center':  loadAlertCenterView(); break;
+    case 'update-center': loadUpdateCenterView(); break;
   }
 }
 
@@ -2064,6 +2066,114 @@ async function loadDocContent(id) {
 }
 
 // ── Utils ────────────────────────────────────────────────────────────────────
+// Update Center (Phase 12 Lot 3)
+async function initUpdateCheck() {
+  try {
+    const updateInfo = await API.checkUpdate();
+    state.update.info = updateInfo;
+    if (updateInfo && updateInfo.updateAvailable) showUpdateBanner(updateInfo);
+    else hideUpdateBanner();
+  } catch (err) {
+    state.update.info = { error: err.message || 'Verification indisponible' };
+    console.warn('Update check failed:', err.message || err);
+  }
+}
+
+function showUpdateBanner(updateInfo = {}) {
+  const latestVersion = updateInfo.latestVersion || updateInfo.version;
+  if (!latestVersion) return;
+  state.update.info = { ...(state.update.info || {}), ...updateInfo, latestVersion, updateAvailable: true };
+
+  const banner = qs('#update-banner');
+  const message = qs('#update-banner-message');
+  if (!banner || !message) return;
+
+  const current = state.update.info.currentVersion ? `Version actuelle ${state.update.info.currentVersion}. ` : '';
+  message.textContent = `${current}La version ${latestVersion} est disponible.`;
+  banner.style.display = 'flex';
+}
+
+function hideUpdateBanner() {
+  const banner = qs('#update-banner');
+  if (banner) banner.style.display = 'none';
+}
+
+async function dismissUpdateBanner() {
+  const latestVersion = state.update.info?.latestVersion || state.update.info?.version;
+  if (!latestVersion) {
+    hideUpdateBanner();
+    return;
+  }
+
+  try {
+    await API.dismissUpdate(latestVersion);
+    hideUpdateBanner();
+    showToast(`Mise a jour ${latestVersion} ignoree`, 'success');
+  } catch (err) {
+    showToast(`Erreur: ${err.message || 'impossible d ignorer la mise a jour'}`, 'error');
+  }
+}
+
+async function loadUpdateCenterView() {
+  const currentEl = qs('#current-version');
+  const latestEl = qs('#latest-version');
+  const statusEl = qs('#update-status');
+  const linksEl = qs('#update-links');
+  const historyEl = qs('#update-history-list');
+
+  if (statusEl) statusEl.textContent = 'Verification...';
+  if (historyEl) historyEl.innerHTML = '<div class="text-muted text-sm">Chargement...</div>';
+
+  let updateInfo = state.update.info || {};
+  try {
+    updateInfo = await API.checkUpdate();
+    state.update.info = updateInfo;
+    if (updateInfo.updateAvailable) showUpdateBanner(updateInfo);
+  } catch (err) {
+    updateInfo = { ...updateInfo, error: err.message || 'Verification indisponible' };
+  }
+
+  if (currentEl) currentEl.textContent = updateInfo.currentVersion || '-';
+  if (latestEl) latestEl.textContent = updateInfo.latestVersion || updateInfo.version || '-';
+  if (statusEl) {
+    if (updateInfo.error) statusEl.textContent = updateInfo.error;
+    else statusEl.textContent = updateInfo.updateAvailable ? 'Mise a jour disponible' : 'A jour';
+  }
+  if (linksEl) {
+    const links = [];
+    if (updateInfo.downloadUrl) links.push(`<a href="${escHtml(updateInfo.downloadUrl)}" target="_blank" rel="noopener">Telechargement</a>`);
+    if (updateInfo.releaseUrl) links.push(`<a href="${escHtml(updateInfo.releaseUrl)}" target="_blank" rel="noopener">Notes de release</a>`);
+    linksEl.innerHTML = links.length ? links.join(' ') : 'Aucun lien disponible.';
+  }
+
+  try {
+    const data = await API.getUpdateHistory();
+    const history = data.history || [];
+    if (!historyEl) return;
+    if (!history.length) {
+      historyEl.innerHTML = '<div class="text-muted text-sm">Aucun historique.</div>';
+      return;
+    }
+    historyEl.innerHTML = history.map((item) => `
+      <div class="update-history-item">
+        <div>
+          <div class="update-history-title">${escHtml(item.version || item.latestVersion || 'Version inconnue')}</div>
+          <div class="update-history-meta">${escHtml(item.action || item.status || 'update')} ${item.createdAt || item.date ? '- ' + escHtml(formatDate(item.createdAt || item.date)) : ''}</div>
+        </div>
+        ${item.downloadUrl ? `<a href="${escHtml(item.downloadUrl)}" target="_blank" rel="noopener">Lien</a>` : ''}
+      </div>
+    `).join('');
+  } catch (err) {
+    if (historyEl) historyEl.innerHTML = `<div class="text-red text-sm">Historique indisponible: ${escHtml(err.message || '')}</div>`;
+  }
+}
+
+window.initUpdateCheck = initUpdateCheck;
+window.showUpdateBanner = showUpdateBanner;
+window.hideUpdateBanner = hideUpdateBanner;
+window.dismissUpdateBanner = dismissUpdateBanner;
+window.loadUpdateCenterView = loadUpdateCenterView;
+
 function qs(sel) { return document.querySelector(sel); }
 function escHtml(str) {
   return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
@@ -2282,6 +2392,9 @@ window.addEventListener('DOMContentLoaded', async () => {
     el.addEventListener('click', () => navigate(el.dataset.view));
   });
 
+  qs('#update-view-details')?.addEventListener('click', () => navigate('update-center'));
+  qs('#update-dismiss')?.addEventListener('click', () => dismissUpdateBanner());
+
   // Keyboard: press Enter in task textarea = Plan (Shift+Enter for newline)
   const taskInput = qs('#task-input');
   if (taskInput) {
@@ -2299,6 +2412,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   });
 
   await initAuth();
+  initUpdateCheck();
 });
 
 // ── Sessions View (Phase 6F) ─────────────────────────────────────────────────

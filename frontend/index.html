@@ -98,6 +98,10 @@
           <span>Paramètres</span>
         </button>
         <!-- Auth nav items — visible only in multi-user mode -->
+        <button class="nav-item" data-view="update-center">
+          <span class="nav-icon">i</span>
+          <span>About / Updates</span>
+        </button>
         <button class="nav-item" data-view="docs">
           <span class="nav-icon">Docs</span>
           <span>Documentation</span>
@@ -178,6 +182,17 @@
       <!-- ╔═══════════════════════════════════════╗ -->
       <!-- ║  VIEW: DASHBOARD                      ║ -->
       <!-- ╚═══════════════════════════════════════╝ -->
+      <div id="update-banner" class="update-banner" style="display:none">
+        <div class="update-banner-content">
+          <div class="update-banner-kicker">Mise a jour disponible</div>
+          <div id="update-banner-message" class="update-banner-message">Une nouvelle version est disponible.</div>
+        </div>
+        <div class="update-banner-actions">
+          <button id="update-view-details" class="btn btn-sm btn-primary">Details</button>
+          <button id="update-dismiss" class="btn btn-sm btn-secondary">Ignorer</button>
+        </div>
+      </div>
+
       <div id="view-dashboard" class="view">
         <div class="page-header">
           <h1>🏠 Tableau de bord</h1>
@@ -1207,6 +1222,48 @@ erreur Jest async</textarea>
               <button class="btn btn-secondary btn-sm" onclick="triggerReportScheduleUI()">Generer maintenant</button>
             </div>
             <div id="report-schedule-status" class="text-sm text-muted mt-12">Chargement...</div>
+          </div>
+        </div>
+      </div>
+
+      <div id="view-update-center" class="view" style="display:none">
+        <div id="update-center-view">
+          <div class="page-header">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+              <div>
+                <h1>About / Update Center</h1>
+                <p>Version installee, derniere version connue et historique des mises a jour</p>
+              </div>
+              <button class="btn btn-secondary btn-sm" onclick="loadUpdateCenterView()">Rafraichir</button>
+            </div>
+          </div>
+          <div class="page-body update-center">
+            <div class="update-center-grid">
+              <div class="update-info-card">
+                <div class="update-info-label">Version actuelle</div>
+                <div id="current-version" class="update-info-value">-</div>
+              </div>
+              <div class="update-info-card">
+                <div class="update-info-label">Derniere version</div>
+                <div id="latest-version" class="update-info-value">-</div>
+              </div>
+              <div class="update-info-card">
+                <div class="update-info-label">Statut</div>
+                <div id="update-status" class="update-info-value">Chargement...</div>
+              </div>
+            </div>
+
+            <div class="card mt-16">
+              <div class="card-title">Liens de release</div>
+              <div id="update-links" class="update-links text-sm text-muted">Aucun lien disponible.</div>
+            </div>
+
+            <div class="card mt-16">
+              <div class="card-title">Historique</div>
+              <div id="update-history-list" class="update-history-list">
+                <div class="text-muted text-sm">Chargement...</div>
+              </div>
+            </div>
           </div>
         </div>
       </div>

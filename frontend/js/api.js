@@ -140,6 +140,11 @@ const API = {
   // Health
   health: () => apiFetch('/health'),
 
+  // Updates
+  checkUpdate: () => apiFetch('/update/check'),
+  dismissUpdate: (version) => apiFetch('/update/dismiss', { method: 'POST', body: JSON.stringify({ version }) }),
+  getUpdateHistory: () => apiFetch('/update/history'),
+
   // Documentation
   getDocs: () => apiFetch('/docs'),
   getDoc: (id) => apiFetch(`/docs/${encodeURIComponent(id)}`),
