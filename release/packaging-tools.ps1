@@ -13,6 +13,14 @@ $Root = Resolve-Path (Join-Path $PSScriptRoot "..")
 $ResolvedOutput = if ([IO.Path]::IsPathRooted($OutputDir)) { $OutputDir } else { Join-Path $Root $OutputDir }
 if (-not (Test-Path $ResolvedOutput)) { New-Item -ItemType Directory -Path $ResolvedOutput | Out-Null }
 
+function ConvertTo-WixVersion([string]$RawVersion) {
+  # Strip leading 'v' and pre-release suffix, return x.y.z.0 quadruplet required by WiX/MSIX
+  $clean = ($RawVersion -replace '^v', '' -split '-')[0]
+  $parts = @($clean -split '\.' | Select-Object -First 3)
+  while ($parts.Count -lt 3) { $parts += '0' }
+  return ($parts -join '.') + '.0'
+}
+
 function Build-Msi {
   param([string]$Version, [string]$OutputDir, [string]$CertificatePath, [switch]$DryRun)
   Write-Host "BuildMsi: checking WiX Toolset prerequisites..." -ForegroundColor Cyan
@@ -24,13 +32,16 @@ function Build-Msi {
   }
   Write-Host "  candle.exe : $($candle.Source)" -ForegroundColor Green
   Write-Host "  light.exe  : $($light.Source)"  -ForegroundColor Green
-  if ($DryRun) { Write-Host "  [DRY-RUN] Would build MSI for version $Version" -ForegroundColor Yellow; return }
+  $WixVersion = ConvertTo-WixVersion $Version
+  Write-Host "  WixVersion : $WixVersion" -ForegroundColor Green
+  if ($DryRun) { Write-Host "  [DRY-RUN] Would build MSI v$WixVersion" -ForegroundColor Yellow; return }
   $wxsDir  = Join-Path $PSScriptRoot "wix"
-  $wixObj  = Join-Path $OutputDir "product.wixobj"
+  $objDir  = Join-Path $OutputDir ".wix-obj"
   $msiPath = Join-Path $OutputDir "super-agent-platform-$Version.msi"
-  & $candle.Source (Join-Path $wxsDir "product.wxs") -out $wixObj
+  if (-not (Test-Path $objDir)) { New-Item -ItemType Directory -Path $objDir | Out-Null }
+  & $candle.Source (Join-Path $wxsDir "product.wxs") (Join-Path $wxsDir "components.wxs") "-dVersion=$WixVersion" -out "$objDir\"
   if ($LASTEXITCODE -ne 0) { throw "candle.exe failed with exit code $LASTEXITCODE" }
-  & $light.Source $wixObj -out $msiPath
+  & $light.Source (Join-Path $objDir "product.wixobj") (Join-Path $objDir "components.wixobj") -out $msiPath
   if ($LASTEXITCODE -ne 0) { throw "light.exe failed with exit code $LASTEXITCODE" }
   if ($CertificatePath -and (Test-Path -LiteralPath $CertificatePath)) {
     $signtool = Get-Command signtool.exe -ErrorAction SilentlyContinue
@@ -39,6 +50,7 @@ function Build-Msi {
       & $signtool.Source sign /fd SHA256 /f "$CertificatePath" /t "$TimestampUrl" "$msiPath"
     }
   }
+  Remove-Item -LiteralPath $objDir -Recurse -Force -ErrorAction SilentlyContinue
   Write-Host "BuildMsi: $msiPath" -ForegroundColor Green
 }
 
@@ -51,13 +63,18 @@ function Build-Msix {
     return
   }
   Write-Host "  makeappx.exe: $($makeappx.Source)" -ForegroundColor Green
-  if ($DryRun) { Write-Host "  [DRY-RUN] Would build MSIX for version $Version" -ForegroundColor Yellow; return }
+  $MsixVersion = ConvertTo-WixVersion $Version
+  Write-Host "  MsixVersion : $MsixVersion" -ForegroundColor Green
+  if ($DryRun) { Write-Host "  [DRY-RUN] Would build MSIX v$MsixVersion" -ForegroundColor Yellow; return }
   $msixStaging = Join-Path $OutputDir ".msix-staging"
   $msixPath    = Join-Path $OutputDir "super-agent-platform-$Version.msix"
   $manifestSrc = Join-Path $PSScriptRoot "msix\AppxManifest.xml"
   $assetsDir   = Join-Path $PSScriptRoot "msix\Assets"
   if (-not (Test-Path $msixStaging)) { New-Item -ItemType Directory -Path $msixStaging | Out-Null }
-  Copy-Item -LiteralPath $manifestSrc -Destination (Join-Path $msixStaging "AppxManifest.xml") -Force
+  # Patch <Identity Version= with the computed quadruplet then write to staging
+  $manifestContent = Get-Content -LiteralPath $manifestSrc -Raw
+  $manifestContent = $manifestContent -replace '(<Identity\b[^>]*\bVersion=")[^"]*(")', "`${1}$MsixVersion`${2}"
+  $manifestContent | Set-Content -LiteralPath (Join-Path $msixStaging "AppxManifest.xml") -Encoding UTF8
   if (Test-Path $assetsDir) {
     $dest = Join-Path $msixStaging "Assets"
     if (-not (Test-Path $dest)) { New-Item -ItemType Directory -Path $dest | Out-Null }

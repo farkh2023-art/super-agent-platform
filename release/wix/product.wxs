@@ -2,15 +2,15 @@
 <!--
   Super-Agent Platform — WiX product definition (MSI installer)
   Requires WiX Toolset v3.11+: https://wixtoolset.org/
-  Build:  candle.exe product.wxs -out product.wixobj
-          light.exe  product.wixobj -out super-agent-platform.msi
+  Build:  candle.exe product.wxs components.wxs -dVersion=x.y.z.0 -out obj\
+          light.exe  obj\product.wixobj obj\components.wixobj -out super-agent-platform.msi
 -->
 <Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
 
   <Product Id="*"
            Name="Super-Agent Platform"
            Language="1033"
-           Version="1.0.0.0"
+           Version="$(var.Version)"
            Manufacturer="Super-Agent"
            UpgradeCode="{00000000-0000-0000-0000-000000000000}">
 
@@ -24,6 +24,7 @@
 
     <Feature Id="ProductFeature" Title="Super-Agent Platform" Level="1">
       <ComponentGroupRef Id="ProductComponents" />
+      <ComponentGroupRef Id="FrontendComponents" />
     </Feature>
 
   </Product>
