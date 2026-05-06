@@ -27,8 +27,8 @@ function Add-Check($Name, $Status, $Detail = "") {
     status = $Status
     detail = $Detail
   })
-  if ($Status -eq "ERROR") { $Errors.Add("$Name: $Detail") }
-  if ($Status -eq "WARNING") { $Warnings.Add("$Name: $Detail") }
+  if ($Status -eq "ERROR") { $Errors.Add("${Name}: ${Detail}") }
+  if ($Status -eq "WARNING") { $Warnings.Add("${Name}: ${Detail}") }
 }
 
 function Test-RequiredFile($Name, $RelativePath) {
@@ -190,3 +190,4 @@ if ($Json) {
 }
 
 if ($Strict -and $criticalErrors.Count -gt 0) { exit 1 }
+
