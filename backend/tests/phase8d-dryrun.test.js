@@ -2,31 +2,72 @@
 
 const fs   = require('fs');
 const path = require('path');
-const { execSync } = require('child_process');
+const { spawnSync } = require('child_process');
 
 const ROOT       = path.resolve(__dirname, '..', '..');
 const read       = (rel) => fs.readFileSync(path.join(ROOT, rel), 'utf8');
 const SCRIPT     = path.join(ROOT, 'release', 'packaging-tools.ps1');
-const PS_FLAGS   = '-NonInteractive -NoProfile';
+const VERSION    = read('VERSION').trim();
+const TAG        = `v${VERSION}`;
+
+function findPowerShell() {
+  for (const command of ['pwsh', 'powershell']) {
+    const result = spawnSync(command, ['-NonInteractive', '-NoProfile', '-Command', '$PSVersionTable.PSVersion.ToString()'], {
+      cwd: ROOT,
+      encoding: 'utf8',
+      windowsHide: true
+    });
+
+    if (result.status === 0) {
+      return command;
+    }
+  }
+
+  return null;
+}
+
+const POWERSHELL = findPowerShell();
+const describeIfPowerShell = POWERSHELL ? describe : describe.skip;
 
 function runPs(args, timeoutMs = 30000) {
-  return execSync(
-    `powershell ${PS_FLAGS} -File "${SCRIPT}" ${args}`,
-    { encoding: 'utf8', timeout: timeoutMs, cwd: ROOT }
-  );
+  const result = spawnSync(POWERSHELL, [
+    '-NonInteractive',
+    '-NoProfile',
+    '-ExecutionPolicy',
+    'Bypass',
+    '-File',
+    SCRIPT,
+    ...args
+  ], {
+    cwd: ROOT,
+    encoding: 'utf8',
+    timeout: timeoutMs,
+    windowsHide: true
+  });
+
+  if (result.error) {
+    throw result.error;
+  }
+
+  return {
+    status: result.status,
+    output: `${result.stdout || ''}\n${result.stderr || ''}`
+  };
 }
 
 describe('Phase 8D - dry-run, cross-GUID, version and pipeline order', () => {
 
-  describe('packaging-tools.ps1 - dry-run (no external tools required)', () => {
+  describeIfPowerShell('packaging-tools.ps1 - dry-run (no external tools required)', () => {
     test('-DryRun -BuildMsi exits with code 0 and outputs [DRY-RUN]', () => {
-      const out = runPs('-BuildMsi -DryRun');
-      expect(out).toMatch(/\[DRY-RUN\]/);
+      const result = runPs(['-BuildMsi', '-DryRun']);
+      expect(result.status).toBe(0);
+      expect(result.output).toMatch(/\[DRY-RUN\]/);
     });
 
     test('-DryRun -BuildMsix exits with code 0 and outputs [DRY-RUN]', () => {
-      const out = runPs('-BuildMsix -DryRun');
-      expect(out).toMatch(/\[DRY-RUN\]/);
+      const result = runPs(['-BuildMsix', '-DryRun']);
+      expect(result.status).toBe(0);
+      expect(result.output).toMatch(/\[DRY-RUN\]/);
     });
   });
 
@@ -42,12 +83,12 @@ describe('Phase 8D - dry-run, cross-GUID, version and pipeline order', () => {
   });
 
   describe('default version - phase-8d', () => {
-    test('create-release.ps1 default Version is v2.6.0-phase-8d', () => {
-      expect(read('release/create-release.ps1')).toMatch(/\$Version = "v2\.6\.0-phase-8d"/);
+    test('create-release.ps1 default Version matches VERSION tag', () => {
+      expect(read('release/create-release.ps1')).toContain(`$Version = "${TAG}"`);
     });
 
-    test('local-ci.ps1 default Version is v2.6.0-phase-8d', () => {
-      expect(read('release/local-ci.ps1')).toMatch(/\$Version = "v2\.6\.0-phase-8d"/);
+    test('local-ci.ps1 default Version matches VERSION tag', () => {
+      expect(read('release/local-ci.ps1')).toContain(`$Version = "${TAG}"`);
     });
   });
 

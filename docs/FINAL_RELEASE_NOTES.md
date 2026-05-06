@@ -1,4 +1,4 @@
-# Final Release Notes - v2.6.0-phase-8c
+# Final Release Notes - v2.7.0-phase-8d
 
 ## Highlights
 
@@ -18,6 +18,12 @@
 - Release-test cleanup with `cleanup-release-test.ps1`.
 - `LOCAL_CI_REPORT.json` and `LOCAL_CI_REPORT.md` generated in `dist/releases/`.
 - Stronger release exclusions for runtime DB files, backups, local settings and GitHub PAT files.
+- Phase 8D completed with release signing, strict verification reports and packaging alignment.
+- Phase 9 distribution CI added GitHub Actions CI, automated release workflow, publish dry-run flow and version checks.
+
+## Current Version
+
+`2.7.0-phase-8d`
 
 ## Known Limits
 
@@ -25,8 +31,9 @@
 - SQLite is optional and must be enabled deliberately after migration checks.
 - Demo mode uses mock AI outputs and does not validate real provider credentials.
 - The generated signature is checksum-based and local, not certificate-backed code signing.
-- Local CI is a Windows local validation flow, not a hosted CI provider.
+- GitHub Actions release publication should be triggered from release tags to keep artifact metadata aligned.
+- Version checks compare release strings directly and do not implement semantic precedence sorting.
 
 ## Next Steps
 
-Phase 8D should add certificate-backed signing, optional MSI/MSIX packaging and hosted CI parity.
+Phase 10 should focus on certificate-backed signing, optional MSI/MSIX packaging hardening and operator release validation.

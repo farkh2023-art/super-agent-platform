@@ -10,6 +10,7 @@ const fs = require('fs');
 const path = require('path');
 
 const TEST_DATA_DIR = path.resolve(__dirname, '..', 'data-test');
+const VERSION = fs.readFileSync(path.resolve(__dirname, '..', '..', 'VERSION'), 'utf8').trim();
 
 afterAll(() => {
   if (fs.existsSync(TEST_DATA_DIR)) {
@@ -22,7 +23,7 @@ describe('GET /api/health', () => {
     const res = await request(app).get('/api/health');
     expect(res.status).toBe(200);
     expect(res.body.status).toBe('ok');
-    expect(res.body.version).toBe('1.0.0');
+    expect(res.body.version).toBe(VERSION);
     expect(res.body.provider).toBe('mock');
   });
 });
