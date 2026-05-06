@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Super-Agent Platform — WiX product definition (MSI installer)
+  Requires WiX Toolset v3.11+: https://wixtoolset.org/
+  Build:  candle.exe product.wxs -out product.wixobj
+          light.exe  product.wixobj -out super-agent-platform.msi
+-->
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+
+  <Product Id="*"
+           Name="Super-Agent Platform"
+           Language="1033"
+           Version="1.0.0.0"
+           Manufacturer="Super-Agent"
+           UpgradeCode="{00000000-0000-0000-0000-000000000000}">
+
+    <Package InstallerVersion="200"
+             Compressed="yes"
+             InstallScope="perMachine"
+             Description="Super-Agent Platform — multi-agent orchestration platform" />
+
+    <MajorUpgrade DowngradeErrorMessage="A newer version of Super-Agent Platform is already installed." />
+    <MediaTemplate EmbedCab="yes" />
+
+    <Feature Id="ProductFeature" Title="Super-Agent Platform" Level="1">
+      <ComponentGroupRef Id="ProductComponents" />
+    </Feature>
+
+  </Product>
+
+  <Fragment>
+    <Directory Id="TARGETDIR" Name="SourceDir">
+      <Directory Id="ProgramFilesFolder">
+        <Directory Id="INSTALLFOLDER" Name="Super-Agent Platform" />
+      </Directory>
+    </Directory>
+  </Fragment>
+
+  <Fragment>
+    <ComponentGroup Id="ProductComponents" Directory="INSTALLFOLDER">
+      <Component Id="MainExecutable" Guid="{00000000-0000-0000-0000-000000000001}">
+        <File Id="StartScript" Source="start.ps1" KeyPath="yes" />
+      </Component>
+    </ComponentGroup>
+  </Fragment>
+
+</Wix>
