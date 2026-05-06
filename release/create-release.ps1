@@ -1,5 +1,5 @@
 param(
-  [string]$Version = "v2.7.0-phase-8d",
+  [string]$Version = "v2.9.0-phase-10",
   [switch]$IncludeTests,
   [string]$OutputDir = "dist\releases",
   [switch]$DryRun,
@@ -132,7 +132,7 @@ $manifest = [ordered]@{
   skippedByRule = ($skipped | Sort-Object -Unique)
   commitGit = $commit
   tag = $tag
-  testsTotalKnown = 662
+  testsTotalKnown = 729
   zip = if ($DryRun) { $null } else { $ZipName }
   checksumSHA256 = $zipHash
   dryRun = [bool]$DryRun

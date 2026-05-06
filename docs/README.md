@@ -1,6 +1,6 @@
 # Super-Agent Platform
 
-> Phase 8C: installable local Windows product with reproducible local CI, release ZIP verification, demo mode, security checklist and onboarding UI.
+> Phase 10: public-release documentation portal with `/api/docs`, Documentation Center, local HTML guide generation and controlled release checks.
 
 ## Quick Start Windows
 
@@ -8,7 +8,7 @@
 .\release\install.ps1
 .\release\start.ps1 -Mode demo
 .\release\health-check.ps1
-.\release\local-ci.ps1 -Version v2.6.0-phase-8c -Strict
+.\release\local-ci.ps1 -Version v2.9.0-phase-10 -Strict
 ```
 
 Demo mode forces `AI_PROVIDER=mock`, `AUTH_MODE=single` and `STORAGE_MODE=json`. No API key is required.
@@ -29,22 +29,25 @@ Demo mode forces `AI_PROVIDER=mock`, `AUTH_MODE=single` and `STORAGE_MODE=json`.
 | `release/local-ci.ps1` | Runs tests, release build, verification, signature and extracted ZIP test |
 | `release/test-release.ps1` | Tests a release ZIP in a fresh temp directory |
 | `release/cleanup-release-test.ps1` | Cleans release-test temp directories safely |
+| `release/generate-docs.ps1` | Generates public guide HTML files and `DOCS_MANIFEST.json` |
+| `release/release-public-check.ps1` | Runs the controlled pre-publication release gate |
 
 ## Packaging Release
 
 ```powershell
-.\release\create-release.ps1 -Version v2.6.0-phase-8c -Verify -Strict
-.\release\local-ci.ps1 -Version v2.6.0-phase-8c -Strict
+.\release\create-release.ps1 -Version v2.9.0-phase-10 -Verify -Strict
+.\release\local-ci.ps1 -Version v2.9.0-phase-10 -Strict
+.\release\release-public-check.ps1 -Offline -Json -Strict
 ```
 
 The release package excludes `.env`, `node_modules`, runtime data, SQLite/database files, logs, local-only settings and token-like files. Local CI writes `LOCAL_CI_REPORT.json` and `LOCAL_CI_REPORT.md`.
 
 Plateforme web locale pour gérer et orchestrer 10 agents IA spécialisés.
 
-[![Tests](https://img.shields.io/badge/tests-583%2F583%20OK-brightgreen)]()
+[![Tests](https://img.shields.io/badge/tests-Phase%2010-brightgreen)]()
 [![Mode Mock](https://img.shields.io/badge/mode-mock%20(sans%20clé%20API)-yellow)]()
 [![Node.js](https://img.shields.io/badge/node-%3E%3D22-blue)]()
-[![Phase](https://img.shields.io/badge/phase-8C-blue)]()
+[![Phase](https://img.shields.io/badge/phase-10-blue)]()
 
 ---
 
@@ -119,7 +122,9 @@ npm start        # ou: node src/server.js
 | Filtrage des secrets avant indexation | ✅ |
 | Embeddings Ollama optionnels (`MEMORY_EMBEDDINGS=ollama`) | ✅ |
 | Backup ZIP inclut memory sans secrets | ✅ |
-| Tests backend (567/567) | ✅ |
+| Docs API (`GET /api/docs`) | ✅ |
+| Documentation Center local | ✅ |
+| Public release check script | ✅ |
 
 ---
 
@@ -204,7 +209,7 @@ Vous pouvez aussi changer le fournisseur depuis l'interface web → **Paramètre
 
 ```bash
 cd backend
-npm test                   # 567 tests (52 suites)
+npm test                   # Full backend test suite
 npm run test:coverage      # Avec rapport de couverture
 ```
 
@@ -226,6 +231,15 @@ Suites :
 - **API REST** → [docs/API.md](API.md)
 - **Agents** → [docs/AGENTS.md](AGENTS.md)
 - **Sécurité** → [SECURITY.md](../SECURITY.md)
+
+## Phase 10 - Documentation Portal
+
+- **Phase 9 Distribution CI** -> [PHASE9.md](PHASE9.md)
+- **Phase 10 Public Release Docs Portal** -> [PHASE10.md](PHASE10.md)
+
+The local documentation API exposes `GET /api/docs` and `GET /api/docs/:id`.
+The frontend Documentation Center consumes these endpoints from the app sidebar.
+`release/generate-docs.ps1` exports public guides to `dist/docs/`, and `release/release-public-check.ps1` validates the controlled public-release gate.
 
 ## Phase 4D - RAG hybride
 

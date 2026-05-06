@@ -1,4 +1,4 @@
-# Final Release Notes - v2.7.0-phase-8d
+# Final Release Notes - v2.9.0-phase-10
 
 ## Highlights
 
@@ -20,10 +20,11 @@
 - Stronger release exclusions for runtime DB files, backups, local settings and GitHub PAT files.
 - Phase 8D completed with release signing, strict verification reports and packaging alignment.
 - Phase 9 distribution CI added GitHub Actions CI, automated release workflow, publish dry-run flow and version checks.
+- Phase 10 adds the local documentation API, frontend Documentation Center, HTML guide generation and a controlled public release gate.
 
 ## Current Version
 
-`2.7.0-phase-8d`
+`2.9.0-phase-10`
 
 ## Known Limits
 
@@ -33,7 +34,9 @@
 - The generated signature is checksum-based and local, not certificate-backed code signing.
 - GitHub Actions release publication should be triggered from release tags to keep artifact metadata aligned.
 - Version checks compare release strings directly and do not implement semantic precedence sorting.
+- PDF guide export depends on local tools and is skipped gracefully when unavailable.
+- Public publication remains controlled by `release-public-check.ps1` and GitHub Actions; Phase 10 does not publish automatically.
 
 ## Next Steps
 
-Phase 10 should focus on certificate-backed signing, optional MSI/MSIX packaging hardening and operator release validation.
+Phase 11 should focus on richer documentation rendering, signed public installers and post-release update UX.

@@ -1,6 +1,6 @@
 {
   "name": "super-agent-platform-backend",
-  "version": "2.7.0",
+  "version": "2.9.0",
   "description": "Super-Agent Platform Backend API",
   "main": "src/server.js",
   "scripts": {
