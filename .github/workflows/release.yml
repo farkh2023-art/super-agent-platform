@@ -1,0 +1,80 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Release
+    runs-on: windows-latest
+
+    env:
+      RELEASE_VERSION: ${{ github.ref_name }}
+      RELEASE_DIR: dist\releases
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: npm ci
+
+      - name: Run backend tests
+        working-directory: backend
+        run: node --experimental-vm-modules node_modules/jest/bin/jest.js --testPathPattern=tests/ --runInBand
+
+      - name: Create release package
+        shell: pwsh
+        run: .\release\create-release.ps1 -Version "$env:RELEASE_VERSION" -Verify -Strict
+
+      - name: Sign release package
+        shell: pwsh
+        run: |
+          $zip = Get-ChildItem -Path $env:RELEASE_DIR -Filter "super-agent-platform-$env:RELEASE_VERSION.zip" | Select-Object -First 1
+          if (-not $zip) { throw "Release ZIP not found for $env:RELEASE_VERSION" }
+          .\release\sign-release.ps1 -ZipPath $zip.FullName -Version "$env:RELEASE_VERSION"
+
+      - name: Verify release package
+        shell: pwsh
+        run: |
+          $zip = Get-ChildItem -Path $env:RELEASE_DIR -Filter "super-agent-platform-$env:RELEASE_VERSION.zip" | Select-Object -First 1
+          if (-not $zip) { throw "Release ZIP not found for $env:RELEASE_VERSION" }
+          .\release\verify-release.ps1 -ZipPath $zip.FullName -Strict
+
+      - name: Upload release artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ github.ref_name }}
+          path: |
+            dist/releases/super-agent-platform-${{ github.ref_name }}.zip
+            dist/releases/super-agent-platform-${{ github.ref_name }}.zip.sha256
+            dist/releases/RELEASE_SIGNATURE.json
+            dist/releases/MANIFEST.json
+            dist/releases/VERIFY_REPORT.json
+            dist/releases/VERIFY_REPORT.md
+          if-no-files-found: error
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
+          files: |
+            dist/releases/super-agent-platform-${{ github.ref_name }}.zip
+            dist/releases/super-agent-platform-${{ github.ref_name }}.zip.sha256
+            dist/releases/RELEASE_SIGNATURE.json
+            dist/releases/MANIFEST.json
+            dist/releases/VERIFY_REPORT.json
+            dist/releases/VERIFY_REPORT.md
