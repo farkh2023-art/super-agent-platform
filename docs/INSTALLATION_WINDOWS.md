@@ -41,6 +41,33 @@ Demo mode forces mock provider, single auth and JSON storage for the current Pow
 
 The script uses the secure API backup if the server is running, otherwise it creates a fallback archive from allowed data files.
 
+## Verify a Release ZIP
+
+```powershell
+.\release\verify-release.ps1 -ZipPath .\dist\releases\super-agent-platform-v2.5.0-phase-8b.zip -Strict
+.\release\sign-release.ps1 -ZipPath .\dist\releases\super-agent-platform-v2.5.0-phase-8b.zip
+```
+
+This creates verification reports and a local checksum signature. It is not certificate-backed code signing.
+
+## Optional Windows Service
+
+Preview service installation:
+
+```powershell
+.\release\install-service.ps1 -DryRun
+```
+
+Install or uninstall requires an elevated PowerShell prompt. The service is optional and not enabled by default.
+
+## Uninstall
+
+```powershell
+.\release\uninstall.ps1
+```
+
+By default, `.env`, backend data and backups are kept.
+
 ## Common Issues
 
 - Port already used: set `PORT=3002` in the session or stop the existing process.

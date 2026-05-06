@@ -27,14 +27,14 @@ Demo mode forces `AI_PROVIDER=mock`, `AUTH_MODE=single` and `STORAGE_MODE=json`.
 ## Packaging Release
 
 ```powershell
-.\release\create-release.ps1 -Version v2.4.0-phase-8
+.\release\create-release.ps1 -Version v2.5.0-phase-8b
 ```
 
 The release package excludes `.env`, `node_modules`, runtime data, SQLite files, logs and token-like files.
 
 Plateforme web locale pour gérer et orchestrer 10 agents IA spécialisés.
 
-[![Tests](https://img.shields.io/badge/tests-550%2F550%20OK-brightgreen)]()
+[![Tests](https://img.shields.io/badge/tests-567%2F567%20OK-brightgreen)]()
 [![Mode Mock](https://img.shields.io/badge/mode-mock%20(sans%20clé%20API)-yellow)]()
 [![Node.js](https://img.shields.io/badge/node-%3E%3D22-blue)]()
 [![Phase](https://img.shields.io/badge/phase-8-blue)]()
@@ -112,7 +112,7 @@ npm start        # ou: node src/server.js
 | Filtrage des secrets avant indexation | ✅ |
 | Embeddings Ollama optionnels (`MEMORY_EMBEDDINGS=ollama`) | ✅ |
 | Backup ZIP inclut memory sans secrets | ✅ |
-| Tests backend (550/550) | ✅ |
+| Tests backend (567/567) | ✅ |
 
 ---
 
@@ -197,7 +197,7 @@ Vous pouvez aussi changer le fournisseur depuis l'interface web → **Paramètre
 
 ```bash
 cd backend
-npm test                   # 550 tests (48 suites)
+npm test                   # 567 tests (52 suites)
 npm run test:coverage      # Avec rapport de couverture
 ```
 

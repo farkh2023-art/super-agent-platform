@@ -442,7 +442,7 @@ Tableau de santé système consolidé. Admin en multi mode, accessible en single
   "auth": { "mode": "single", "activeSessions": 0, "blacklistCount": 0, "cleanupEnabled": false },
   "rag": { "memoryItems": 0, "embeddingsEnabled": false, "embeddingsCount": 0, "lastEvaluationAt": null },
   "scheduler": { "enabled": true, "schedulesCount": 0, "lastRunAt": null },
-  "tests": { "lastKnownTotal": 550 },
+  "tests": { "lastKnownTotal": 567 },
   "warnings": []
 }
 ```

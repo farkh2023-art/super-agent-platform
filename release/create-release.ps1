@@ -1,8 +1,10 @@
 param(
-  [string]$Version = "v2.4.0-phase-8",
+  [string]$Version = "v2.5.0-phase-8b",
   [switch]$IncludeTests,
   [string]$OutputDir = "dist\releases",
-  [switch]$DryRun
+  [switch]$DryRun,
+  [switch]$Verify,
+  [switch]$Strict
 )
 
 $ErrorActionPreference = "Stop"
@@ -107,12 +109,6 @@ try { $commit = (git -c safe.directory="$($Root.Path.Replace('\','/'))" rev-pars
 try { $tag = (git -c safe.directory="$($Root.Path.Replace('\','/'))" describe --tags --exact-match 2>$null) } catch {}
 
 $zipHash = $null
-if (-not $DryRun) {
-  if (Test-Path $ZipPath) { Remove-Item -LiteralPath $ZipPath -Force }
-  Compress-Archive -Path (Join-Path $Stage "*") -DestinationPath $ZipPath -Force
-  $zipHash = (Get-FileHash -LiteralPath $ZipPath -Algorithm SHA256).Hash
-  Remove-Item -LiteralPath $Stage -Recurse -Force
-}
 
 $manifest = [ordered]@{
   version = $Version
@@ -122,7 +118,7 @@ $manifest = [ordered]@{
   skippedByRule = ($skipped | Sort-Object -Unique)
   commitGit = $commit
   tag = $tag
-  testsTotalKnown = 550
+  testsTotalKnown = 567
   zip = if ($DryRun) { $null } else { $ZipName }
   checksumSHA256 = $zipHash
   dryRun = [bool]$DryRun
@@ -134,7 +130,21 @@ if ($DryRun) {
   Write-Host "Dry run complete. Manifest written: $ManifestPath" -ForegroundColor Yellow
   Write-Host "Files that would be included: $($included.Count)"
 } else {
+  if (Test-Path $ZipPath) { Remove-Item -LiteralPath $ZipPath -Force }
+  Compress-Archive -Path (Join-Path $Stage "*") -DestinationPath $ZipPath -Force
+  $zipHash = (Get-FileHash -LiteralPath $ZipPath -Algorithm SHA256).Hash
+  $manifest.checksumSHA256 = $zipHash
+  $manifest | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $ManifestPath -Encoding UTF8
+  Remove-Item -LiteralPath $Stage -Recurse -Force
   Write-Host "Release ZIP created: $ZipPath" -ForegroundColor Green
   Write-Host "Manifest written: $ManifestPath"
   Write-Host "SHA256: $zipHash"
+  if ($Verify) {
+    Write-Host "Running release verification..."
+    & (Join-Path $PSScriptRoot "verify-release.ps1") -ZipPath $ZipPath -OutputDir $OutputDir -Strict:$Strict
+    if ($LASTEXITCODE -ne 0) { throw "Release verification failed." }
+    Write-Host "Verify status: OK" -ForegroundColor Green
+  } else {
+    Write-Host "Verify status: skipped"
+  }
 }

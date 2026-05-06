@@ -48,3 +48,27 @@ Stop the server, close tools that hold the database file, then restart. SQLite i
 ## Ollama Missing
 
 Use demo mode or set `AI_PROVIDER=mock`. For local embeddings, install Ollama, start it, and pull the configured models.
+
+## Release Verification Fails
+
+Run:
+
+```powershell
+.\release\verify-release.ps1 -ZipPath .\dist\releases\super-agent-platform-v2.5.0-phase-8b.zip -Strict
+```
+
+Check `dist/releases/VERIFY_REPORT.md`. Common causes are accidental `.env`, SQLite files, runtime data or token files in the package source.
+
+## Windows Service Install Fails
+
+Service install requires Administrator PowerShell. First run:
+
+```powershell
+.\release\install-service.ps1 -DryRun
+```
+
+Then retry in an elevated shell only if you really want the optional service.
+
+## Shortcuts Not Created
+
+Shortcut creation uses Windows Script Host. If it is disabled by policy, run the scripts directly from the `release` folder.

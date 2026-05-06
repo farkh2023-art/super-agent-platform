@@ -12,3 +12,7 @@
 - [ ] Local-only use is recommended unless a full deployment review is done.
 - [ ] SQLite files are treated as sensitive runtime data.
 - [ ] Release ZIP excludes `.env`, `node_modules`, runtime data, SQLite and token files.
+- [ ] `verify-release.ps1 -Strict` passes before sharing the ZIP.
+- [ ] `.sha256` and `RELEASE_SIGNATURE.json` are generated with `sign-release.ps1`.
+- [ ] Optional Windows service is installed only from an elevated shell and only when needed.
+- [ ] Uninstall keeps `.env`, data and backups unless removal is explicitly confirmed.
