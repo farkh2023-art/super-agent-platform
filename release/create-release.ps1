@@ -1,5 +1,5 @@
 param(
-  [string]$Version = "v2.6.0-phase-8d",
+  [string]$Version = "v2.7.0-phase-8d",
   [switch]$IncludeTests,
   [string]$OutputDir = "dist\releases",
   [switch]$DryRun,
