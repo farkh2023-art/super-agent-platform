@@ -63,3 +63,8 @@ dist/
 build/
 *.tgz
 backups/
+
+# ── Installer packages (MSI/MSIX — never commit binaries) ─────
+*.msi
+*.msix
+*.appxbundle

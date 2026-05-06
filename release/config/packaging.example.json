@@ -1,0 +1,23 @@
+{
+  "msi": {
+    "productName": "Super-Agent Platform",
+    "manufacturer": "Super-Agent",
+    "upgradeCode": "{00000000-0000-0000-0000-000000000000}",
+    "wixToolsetPath": "C:\\Program Files (x86)\\WiX Toolset v3.11\\bin",
+    "outputFilename": "super-agent-platform-{version}.msi"
+  },
+  "msix": {
+    "publisherDisplayName": "Super-Agent",
+    "publisherIdentity": "CN=Super-Agent",
+    "packageVersion": "1.0.0.0",
+    "makeAppxPath": "C:\\Program Files (x86)\\Windows Kits\\10\\bin\\10.0.19041.0\\x64\\makeappx.exe",
+    "outputFilename": "super-agent-platform-{version}.msix"
+  },
+  "signing": {
+    "signatureType": "local-checksum",
+    "certificatePath": "",
+    "timestampUrl": "http://timestamp.digicert.com",
+    "signtoolPath": "C:\\Program Files (x86)\\Windows Kits\\10\\bin\\10.0.19041.0\\x64\\signtool.exe",
+    "note": "Set signatureType to 'authenticode' and certificatePath to your .pfx or .p12 file to enable certificate-backed code signing."
+  }
+}

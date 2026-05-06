@@ -4,7 +4,10 @@ param(
   [switch]$SkipReleaseBuild,
   [switch]$KeepTemp,
   [switch]$Json,
-  [switch]$Strict
+  [switch]$Strict,
+  [switch]$BuildMsi,
+  [switch]$BuildMsix,
+  [string]$CertificatePath = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -113,6 +116,16 @@ if ($Errors.Count -eq 0) {
   Invoke-Step "test-release" {
     & (Join-Path $PSScriptRoot "test-release.ps1") -ZipPath $ZipPath -KeepTemp:$KeepTemp -Json | Out-Host
     if ($LASTEXITCODE -ne 0) { throw "test-release failed with exit code $LASTEXITCODE" }
+  } | Out-Null
+}
+
+if ($Errors.Count -eq 0 -and ($BuildMsi -or $BuildMsix)) {
+  Invoke-Step "packaging-msi-msix" {
+    & (Join-Path $PSScriptRoot "packaging-tools.ps1") `
+      -Version $Version -OutputDir $OutputDir `
+      -BuildMsi:$BuildMsi -BuildMsix:$BuildMsix `
+      -CertificatePath $CertificatePath
+    if ($LASTEXITCODE -ne 0) { throw "packaging-tools failed with exit code $LASTEXITCODE" }
   } | Out-Null
 }
 

@@ -4,7 +4,10 @@ param(
   [string]$OutputDir = "dist\releases",
   [switch]$DryRun,
   [switch]$Verify,
-  [switch]$Strict
+  [switch]$Strict,
+  [switch]$BuildMsi,
+  [switch]$BuildMsix,
+  [string]$CertificatePath = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -158,4 +161,12 @@ if ($DryRun) {
   } else {
     Write-Host "Verify status: skipped"
   }
+}
+
+if ($BuildMsi -or $BuildMsix) {
+  & (Join-Path $PSScriptRoot "packaging-tools.ps1") `
+    -Version $Version -OutputDir $OutputDir `
+    -BuildMsi:$BuildMsi -BuildMsix:$BuildMsix `
+    -CertificatePath $CertificatePath -DryRun:$DryRun
+  if ($LASTEXITCODE -ne 0) { throw "packaging-tools failed with exit code $LASTEXITCODE" }
 }
