@@ -3,12 +3,10 @@
 const express = require('express');
 const fs = require('fs');
 const path = require('path');
-const { readRuntimeConfig, writeRuntimeConfig } = require('../storage/runtimeConfig');
-const { isNewer } = require('../utils/semver');
+const { writeRuntimeConfig } = require('../storage/runtimeConfig');
+const updateMonitor = require('../monitoring/updateMonitor');
 
 const router = express.Router();
-
-const VERSION_FILE = path.resolve(__dirname, '..', '..', '..', 'VERSION');
 
 function getDataDir() {
   return process.env.DATA_DIR
@@ -16,18 +14,28 @@ function getDataDir() {
     : path.resolve(__dirname, '..', '..', 'data');
 }
 
-function readCurrentVersion() {
-  try {
-    if (fs.existsSync(VERSION_FILE)) return fs.readFileSync(VERSION_FILE, 'utf8').trim();
-  } catch {}
-  return '0.0.0';
-}
-
 function readHistory() {
   try {
     const p = path.join(getDataDir(), 'update-history.json');
     if (!fs.existsSync(p)) return [];
-    return JSON.parse(fs.readFileSync(p, 'utf8'));
+
+    const parsed = JSON.parse(fs.readFileSync(p, 'utf8'));
+    const history = Array.isArray(parsed) ? parsed : Array.isArray(parsed.history) ? parsed.history : [];
+
+    return history
+      .map((entry) => {
+        const copy = { ...entry };
+        delete copy.zipPath;
+        delete copy.installDir;
+        delete copy.path;
+        return copy;
+      })
+      .sort((a, b) => {
+        const left = Date.parse(a.installedAt || a.date || a.timestamp || 0);
+        const right = Date.parse(b.installedAt || b.date || b.timestamp || 0);
+        return right - left;
+      })
+      .slice(0, 50);
   } catch {
     return [];
   }
@@ -35,68 +43,32 @@ function readHistory() {
 
 // GET /api/update/check
 router.get('/check', async (req, res) => {
-  const currentVersion = readCurrentVersion();
-  const feedUrl = process.env.UPDATE_FEED_URL;
-  const cfg = readRuntimeConfig();
-  const dismissedVersion = cfg.dismissedUpdateVersion || null;
-
-  if (!feedUrl) {
-    return res.json({
-      currentVersion,
-      latestVersion: null,
-      updateAvailable: false,
-      downloadUrl: null,
-      releaseNotes: null,
-      dismissedVersion,
-      feedAvailable: false,
-    });
-  }
-
-  // Only allow http/https — reject file:// and other schemes
-  let parsedUrl;
   try {
-    parsedUrl = new URL(feedUrl);
-    if (!['https:', 'http:'].includes(parsedUrl.protocol)) throw new Error('protocol');
-  } catch {
-    return res.status(500).json({ error: 'UPDATE_FEED_URL must be a valid http/https URL' });
-  }
-
-  try {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 8000);
-    let manifest;
-    try {
-      const resp = await fetch(feedUrl, { signal: controller.signal });
-      if (!resp.ok) throw new Error(`Feed HTTP ${resp.status}`);
-      manifest = await resp.json();
-    } finally {
-      clearTimeout(timer);
-    }
-
-    const latestVersion = String(manifest.version || '');
-    const updateAvailable =
-      isNewer(currentVersion, latestVersion) && latestVersion !== dismissedVersion;
-
-    return res.json({
-      currentVersion,
-      latestVersion,
-      updateAvailable,
-      downloadUrl: manifest.downloadUrl || null,
-      releaseNotes: manifest.releaseNotes || null,
-      dismissedVersion,
-      feedAvailable: true,
-    });
+    return res.json(await updateMonitor.runOnce({ notify: false }));
   } catch (err) {
     return res.json({
-      currentVersion,
+      status: 'ERROR',
       latestVersion: null,
       updateAvailable: false,
       downloadUrl: null,
       releaseNotes: null,
-      dismissedVersion,
-      feedAvailable: true,
-      feedError: err.name === 'AbortError' ? 'timeout' : err.message,
+      feedAvailable: Boolean(process.env.UPDATE_FEED_URL),
+      feedError: err.message,
     });
+  }
+});
+
+// GET /api/update/monitor/status
+router.get('/monitor/status', (req, res) => {
+  res.json(updateMonitor.getStatus());
+});
+
+// POST /api/update/check-now
+router.post('/check-now', async (req, res) => {
+  try {
+    res.json(await updateMonitor.runOnce());
+  } catch (err) {
+    res.status(500).json({ status: 'ERROR', updateAvailable: false, error: err.message });
   }
 });
 

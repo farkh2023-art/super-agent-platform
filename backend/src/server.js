@@ -174,6 +174,9 @@ if (require.main === module) {
     require('./reports/scheduledAdminReports').start();
     require('./engine/storageMonitor').start(broadcast);
     require('./auth/authCleanup').startAutoCleanup();
+    if (String(process.env.UPDATE_MONITOR_ENABLED || '').toLowerCase() === 'true') {
+      require('./monitoring/updateMonitor').start();
+    }
   });
 }
 
