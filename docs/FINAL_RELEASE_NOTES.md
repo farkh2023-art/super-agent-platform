@@ -1,4 +1,27 @@
-# Final Release Notes - v2.9.0-phase-10
+# Final Release Notes - v3.0.0-phase-12
+
+## v3.0.0-phase-12
+
+Phase 12 adds controlled auto-update support without automatic installation.
+
+Lots completed:
+
+- Lot 2: update backend API with `/api/update/check`, `/api/update/history`, `/api/update/dismiss` and semver comparison.
+- Lot 3: frontend Update Center, update banner and WebSocket `update_available` handling.
+- Lot 4: Windows scripts `release/update-check.ps1` and `release/update-install.ps1`.
+- Lot 5: disabled-by-default local `updateMonitor`, `/api/update/monitor/status` and `/api/update/check-now`.
+- Lot 6: operator configuration, public update manifest example, rollback guide and final docs.
+
+Remaining limits:
+
+- No release is published by this phase.
+- No GitHub release is created automatically.
+- `UPDATE_MONITOR_ENABLED=false` remains the safe default.
+- Operators must verify SHA256 and use explicit consent before installation.
+
+---
+
+# Previous Release Notes - v2.9.0-phase-10
 
 ## Highlights
 
@@ -24,7 +47,7 @@
 
 ## Current Version
 
-`2.9.0-phase-10`
+`3.0.0-phase-12`
 
 ## Known Limits
 

@@ -19,3 +19,8 @@
 - [ ] Extracted release tests run only under `$env:TEMP\super-agent-platform-release-test`.
 - [ ] Optional Windows service is installed only from an elevated shell and only when needed.
 - [ ] Uninstall keeps `.env`, data and backups unless removal is explicitly confirmed.
+- [ ] `UPDATE_FEED_URL` is empty or uses HTTPS only.
+- [ ] `UPDATE_MONITOR_ENABLED=false` unless notification monitoring is explicitly wanted.
+- [ ] Update ZIP files are verified with SHA256 before installation.
+- [ ] Downloaded ZIP contents are never executed automatically.
+- [ ] No token, GitHub PAT, API key, password or secret is published in update manifests or release notes.

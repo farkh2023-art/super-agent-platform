@@ -1,5 +1,5 @@
 param(
-  [string]$Version = "v2.9.0-phase-10",
+  [string]$Version = "v3.0.0-phase-12",
   [switch]$SkipTests,
   [switch]$SkipReleaseBuild,
   [switch]$KeepTemp,

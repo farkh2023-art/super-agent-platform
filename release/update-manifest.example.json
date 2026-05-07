@@ -1,0 +1,8 @@
+{
+  "version": "v3.0.0-phase-12",
+  "releaseDate": "YYYY-MM-DD",
+  "releaseUrl": "https://github.com/farkh2023-art/super-agent-platform/releases/tag/v3.0.0-phase-12",
+  "downloadUrl": "https://github.com/farkh2023-art/super-agent-platform/releases/download/v3.0.0-phase-12/super-agent-platform-v3.0.0-phase-12.zip",
+  "sha256": "REPLACE_WITH_RELEASE_SHA256",
+  "releaseNotes": "Auto-update controle, Update Center, monitoring release."
+}

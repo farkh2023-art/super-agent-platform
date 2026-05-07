@@ -1,6 +1,6 @@
 # Super-Agent Platform
 
-> Phase 10: public-release documentation portal with `/api/docs`, Documentation Center, local HTML guide generation and controlled release checks.
+> Phase 12: controlled auto-update with Update Center, HTTPS update feed, local monitor, Windows verification/install scripts and rollback documentation.
 
 ## Quick Start Windows
 
@@ -8,7 +8,7 @@
 .\release\install.ps1
 .\release\start.ps1 -Mode demo
 .\release\health-check.ps1
-.\release\local-ci.ps1 -Version v2.9.0-phase-10 -Strict
+.\release\local-ci.ps1 -Version v3.0.0-phase-12 -Strict
 ```
 
 Demo mode forces `AI_PROVIDER=mock`, `AUTH_MODE=single` and `STORAGE_MODE=json`. No API key is required.
@@ -31,12 +31,14 @@ Demo mode forces `AI_PROVIDER=mock`, `AUTH_MODE=single` and `STORAGE_MODE=json`.
 | `release/cleanup-release-test.ps1` | Cleans release-test temp directories safely |
 | `release/generate-docs.ps1` | Generates public guide HTML files and `DOCS_MANIFEST.json` |
 | `release/release-public-check.ps1` | Runs the controlled pre-publication release gate |
+| `release/update-check.ps1` | Checks an HTTPS update manifest without downloading the ZIP |
+| `release/update-install.ps1` | Performs dry-run safe, SHA256-verified guided installation |
 
 ## Packaging Release
 
 ```powershell
-.\release\create-release.ps1 -Version v2.9.0-phase-10 -Verify -Strict
-.\release\local-ci.ps1 -Version v2.9.0-phase-10 -Strict
+.\release\create-release.ps1 -Version v3.0.0-phase-12 -Verify -Strict
+.\release\local-ci.ps1 -Version v3.0.0-phase-12 -Strict
 .\release\release-public-check.ps1 -Offline -Json -Strict
 ```
 
@@ -231,6 +233,14 @@ Suites :
 - **API REST** → [docs/API.md](API.md)
 - **Agents** → [docs/AGENTS.md](AGENTS.md)
 - **Sécurité** → [SECURITY.md](../SECURITY.md)
+
+## Phase 12 - Controlled Auto-update
+
+- **Phase 12 Controlled Auto-update** -> [PHASE12.md](PHASE12.md)
+- Update manifest example -> `release/update-manifest.example.json`
+- Update scripts -> `release/update-check.ps1` and `release/update-install.ps1`
+
+Phase 12 adds `/api/update/check`, `/api/update/history`, `/api/update/dismiss`, `/api/update/monitor/status`, `/api/update/check-now`, the frontend Update Center, WebSocket `update_available`, and a disabled-by-default local update monitor. No update is installed automatically.
 
 ## Phase 10 - Documentation Portal
 

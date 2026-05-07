@@ -2,7 +2,7 @@
 
 Local multi-agent orchestration platform for Windows and Node.js.
 
-Current release target: `v2.9.0-phase-10`.
+Current release target: `v3.0.0-phase-12`.
 
 ## Quick Start Windows
 
@@ -21,7 +21,7 @@ Demo mode uses `AI_PROVIDER=mock`, `AUTH_MODE=single` and `STORAGE_MODE=json`. N
 ## Release Packaging
 
 ```powershell
-.\release\create-release.ps1 -Version v2.9.0-phase-10
+.\release\create-release.ps1 -Version v3.0.0-phase-12
 ```
 
 The ZIP is written to `dist/releases/` and excludes `.env`, dependency folders, runtime data, SQLite files and token-like files.
@@ -29,9 +29,9 @@ The ZIP is written to `dist/releases/` and excludes `.env`, dependency folders, 
 Verify and create a local checksum signature:
 
 ```powershell
-.\release\create-release.ps1 -Version v2.9.0-phase-10 -Verify -Strict
-.\release\sign-release.ps1 -ZipPath .\dist\releases\super-agent-platform-v2.9.0-phase-10.zip
-.\release\local-ci.ps1 -Version v2.9.0-phase-10 -Strict
+.\release\create-release.ps1 -Version v3.0.0-phase-12 -Verify -Strict
+.\release\sign-release.ps1 -ZipPath .\dist\releases\super-agent-platform-v3.0.0-phase-12.zip
+.\release\local-ci.ps1 -Version v3.0.0-phase-12 -Strict
 ```
 
 Release distribution is also covered by GitHub Actions: CI runs through `.github/workflows/ci.yml`, and tagged releases use `.github/workflows/release.yml`.
@@ -43,6 +43,10 @@ Before public release, run the controlled gate:
 ```
 
 The local Documentation Center is available in the app sidebar and is backed by `/api/docs`.
+
+## Controlled Auto-update
+
+Phase 12 adds a controlled Update Center, release monitoring and Windows verification/install scripts. The platform can check an HTTPS update feed and notify users through `update_available`, but automatic installation is never triggered without explicit operator consent. See [Phase 12](docs/PHASE12.md).
 
 Optional Windows service and shortcuts are available through dry-run safe scripts:
 
@@ -62,4 +66,5 @@ Optional Windows service and shortcuts are available through dry-run safe script
 - [Phase 8C Local CI](docs/PHASE8C.md)
 - [Phase 9 Distribution CI](docs/PHASE9.md)
 - [Phase 10 Public Release Docs Portal](docs/PHASE10.md)
+- [Phase 12 Controlled Auto-update](docs/PHASE12.md)
 - [API Reference](docs/API.md)
