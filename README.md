@@ -1,4 +1,5 @@
 # Super-Agent Platform
+[![Release](https://github.com/farkh2023-art/super-agent-platform/actions/workflows/release.yml/badge.svg)](https://github.com/farkh2023-art/super-agent-platform/actions/workflows/release.yml)
 
 Local multi-agent orchestration platform for Windows and Node.js.
 
