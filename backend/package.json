@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
-    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js --testPathPattern=tests/",
+    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js --testPathPattern=tests/ --runInBand",
     "test:coverage": "node --experimental-vm-modules node_modules/jest/bin/jest.js --testPathPattern=tests/ --coverage"
   },
   "dependencies": {

@@ -6,6 +6,7 @@ async function sendWebhook(event, payload) {
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 10_000);
+  if (timer.unref) timer.unref();
 
   try {
     const headers = { 'Content-Type': 'application/json', 'User-Agent': 'SuperAgent-Platform/1.0' };
@@ -18,7 +19,9 @@ async function sendWebhook(event, payload) {
       body: JSON.stringify({ event, payload, timestamp: new Date().toISOString() }),
     });
   } catch (err) {
-    if (err.name !== 'AbortError') console.warn(`[webhook] ${event} failed: ${err.message}`);
+    if (err.name !== 'AbortError' && process.env.NODE_ENV !== 'test') {
+      console.warn(`[webhook] ${event} failed: ${err.message}`);
+    }
   } finally {
     clearTimeout(timer);
   }

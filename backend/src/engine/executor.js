@@ -9,6 +9,26 @@ const { sendWebhook } = require('../notifications/webhook');
 const { addChunk, retrieve } = require('../memory/retriever');
 const { sanitizeContent } = require('../memory/sanitize');
 
+const pendingBackgroundTasks = new Set();
+
+function isTestMode() {
+  return process.env.NODE_ENV === 'test';
+}
+
+async function runSideEffect(promise) {
+  if (isTestMode()) {
+    await promise.catch(() => {});
+    return;
+  }
+
+  pendingBackgroundTasks.add(promise);
+  promise.catch(() => {}).finally(() => pendingBackgroundTasks.delete(promise));
+}
+
+async function flushBackgroundTasks() {
+  await Promise.allSettled([...pendingBackgroundTasks]);
+}
+
 function isMemoryEnabled(execution) {
   if (execution.useMemory === false) return false;
   return process.env.MEMORY_ENABLED === 'true';
@@ -105,7 +125,7 @@ async function executeStep(executionId, step, task, useMemory) {
     appendLog(executionId, 'success', `✅ ${agent.name} terminé`, { agentId: agent.id });
 
     if (useMemory) {
-      addChunk({ content: result, source: 'artifact', agentId: agent.id }).catch(() => {});
+      await runSideEffect(addChunk({ content: result, source: 'artifact', agentId: agent.id }));
     }
 
     // Save artifact
@@ -188,7 +208,7 @@ async function runExecution(executionId) {
 
   appendLog(executionId, 'info', `🏁 Exécution terminée : ${finalStatus}`);
   emit(executionId, 'execution_done', { executionId, status: finalStatus });
-  sendWebhook('execution_done', { executionId, task: execution.task, status: finalStatus }).catch(() => {});
+  await runSideEffect(sendWebhook('execution_done', { executionId, task: execution.task, status: finalStatus }));
 }
 
 function createExecution(plan, options = {}) {
@@ -222,4 +242,4 @@ function createExecution(plan, options = {}) {
   return execution;
 }
 
-module.exports = { runExecution, createExecution, setBroadcast };
+module.exports = { runExecution, createExecution, setBroadcast, flushBackgroundTasks };
